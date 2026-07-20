@@ -1,0 +1,225 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-20T00:00:00-03:00",
+  "title": "Design System: Bespoke Web Storefront",
+  "extensions": {
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "displayName": "Gallery White",
+        "canonical": "#ffffff",
+        "tonalRamp": ["oklch(15% 0 0)", "oklch(27% 0 0)", "oklch(39% 0 0)", "oklch(51% 0 0)", "oklch(63% 0 0)", "oklch(75% 0 0)", "oklch(87% 0 0)", "oklch(99% 0 0)"]
+      },
+      "brand-primary": {
+        "role": "primary",
+        "displayName": "Signature Black",
+        "canonical": "#090907",
+        "tonalRamp": ["oklch(10% 0.008 85)", "oklch(18% 0.008 85)", "oklch(28% 0.008 85)", "oklch(38% 0.008 85)", "oklch(50% 0.008 85)", "oklch(62% 0.008 85)", "oklch(78% 0.008 85)", "oklch(92% 0.008 85)"]
+      },
+      "champagne-accent": {
+        "role": "primary",
+        "displayName": "Champagne Gold",
+        "canonical": "#c9a76d",
+        "tonalRamp": ["oklch(18% 0.06 82)", "oklch(28% 0.07 82)", "oklch(38% 0.08 82)", "oklch(50% 0.09 82)", "oklch(62% 0.09 82)", "oklch(74% 0.08 82)", "oklch(86% 0.055 82)", "oklch(95% 0.03 82)"]
+      },
+      "champagne-strong": {
+        "role": "primary",
+        "displayName": "Strong Champagne",
+        "canonical": "#7f5d28",
+        "tonalRamp": ["oklch(18% 0.055 82)", "oklch(28% 0.06 82)", "oklch(38% 0.065 82)", "oklch(50% 0.07 82)", "oklch(62% 0.07 82)", "oklch(74% 0.06 82)", "oklch(86% 0.045 82)", "oklch(95% 0.025 82)"]
+      },
+      "champagne-deep": {
+        "role": "primary",
+        "displayName": "Deep Champagne",
+        "canonical": "#6b4f22",
+        "tonalRamp": ["oklch(16% 0.05 82)", "oklch(24% 0.055 82)", "oklch(34% 0.06 82)", "oklch(44% 0.065 82)", "oklch(56% 0.065 82)", "oklch(68% 0.055 82)", "oklch(82% 0.04 82)", "oklch(94% 0.025 82)"]
+      },
+      "surface-elevated": {
+        "role": "neutral",
+        "displayName": "Elevated Ivory",
+        "canonical": "#f7f4ee",
+        "tonalRamp": ["oklch(18% 0.012 85)", "oklch(29% 0.012 85)", "oklch(40% 0.012 85)", "oklch(51% 0.012 85)", "oklch(63% 0.012 85)", "oklch(75% 0.012 85)", "oklch(87% 0.012 85)", "oklch(96% 0.012 85)"]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Pale Champagne Line",
+        "canonical": "#ddd7ca",
+        "tonalRamp": ["oklch(18% 0.018 82)", "oklch(30% 0.018 82)", "oklch(42% 0.018 82)", "oklch(54% 0.018 82)", "oklch(66% 0.018 82)", "oklch(78% 0.018 82)", "oklch(88% 0.016 82)", "oklch(95% 0.012 82)"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Storefront Display",
+        "purpose": "Hero and rare editorial catalog moments, using a minimal luxury stack such as Bodoni 72, Didot, Cormorant Garamond, and Georgia."
+      },
+      "headline": {
+        "displayName": "Catalog Headline",
+        "purpose": "Catalog, product detail, cart, checkout, and section headings."
+      },
+      "title": {
+        "displayName": "Product Title",
+        "purpose": "Product cards, filter panels, summaries, and compact storefront panels."
+      },
+      "body": {
+        "displayName": "Catalog Copy",
+        "purpose": "Product descriptions, support content, notes, and empty-state guidance."
+      },
+      "label": {
+        "displayName": "Storefront Label",
+        "purpose": "Navigation, badges, buttons, form labels, filters, and prices."
+      }
+    },
+    "shadows": [
+      {
+        "name": "cart-link-glow",
+        "value": "0 10px 28px rgba(29, 34, 31, 0.06)",
+        "purpose": "Small utility elevation for cart access."
+      },
+      {
+        "name": "card-hover-confirmation",
+        "value": "0 6px 12px rgba(17, 16, 13, 0.06)",
+        "purpose": "Quiet product-card hover confirmation paired with a champagne border shift."
+      },
+      {
+        "name": "lifted-surface",
+        "value": "0 28px 70px rgba(17, 16, 13, 0.12)",
+        "purpose": "Product detail media where staged image depth is needed."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-fast",
+        "value": "160ms ease",
+        "purpose": "State changes for buttons, card hover, borders, and header actions."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile-menu",
+        "value": "760px"
+      },
+      {
+        "name": "single-column-checkout",
+        "value": "1024px"
+      },
+      {
+        "name": "home-card-comfort",
+        "value": "1120px"
+      },
+      {
+        "name": "compact-card-action",
+        "value": "420px"
+      },
+      {
+        "name": "small-phone",
+        "value": "374px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Luxury Header",
+      "kind": "nav",
+      "refersTo": "site-header",
+      "description": "White sticky retail header with wordmark, optional real logo, centered navigation, and visible cart.",
+      "html": "<header class=\"ds-web-header\"><a class=\"ds-web-brand\" href=\"#\"><strong>Bespoke</strong></a><nav><a class=\"active\" href=\"#\">Catalog</a><a href=\"#\">Orders</a><a href=\"#\">Support</a></nav><a class=\"ds-web-cart\" href=\"#\">Bag <span>2</span></a></header>",
+      "css": ".ds-web-header { min-height: 72px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-5); padding: 0 var(--space-6); background: rgba(255,255,255,0.94); border-bottom: 1px solid rgba(221,215,202,0.9); color: var(--color-brand-primary); } .ds-web-brand { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 44px; color: inherit; text-decoration: none; font-family: var(--font-display); font-size: 2rem; } .ds-web-header nav { display: flex; justify-content: center; gap: var(--space-4); } .ds-web-header nav a { min-height: 40px; display: inline-flex; align-items: center; color: var(--color-text-secondary); text-decoration: none; font-weight: 800; border-bottom: 2px solid transparent; } .ds-web-header nav a.active { color: var(--color-brand-primary); border-bottom-color: var(--color-brand-accent); } .ds-web-cart { min-height: 44px; display: inline-flex; align-items: center; gap: var(--space-2); padding: 0 var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-sm); text-decoration: none; color: var(--color-brand-primary); background: var(--color-surface); box-shadow: 0 10px 28px rgba(29,34,31,0.06); font-weight: 800; }"
+    },
+    {
+      "name": "Product Card",
+      "kind": "card",
+      "refersTo": "product-card",
+      "description": "Curated catalog card with premium image staging, a curation marker, labeled price, and a responsive add action that never clips against the card edge.",
+      "html": "<article class=\"ds-web-product-card\"><a class=\"ds-web-product-image\" href=\"#\"><img alt=\"Product\" src=\"https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=500&q=70\" /></a><div class=\"ds-web-product-body\"><div class=\"ds-web-product-meta\"><span>Rituals</span><small>Curated</small></div><h2>Signature Selection</h2><p>A compact product description with enough detail to invite inspection.</p><footer><div><span>Price</span><strong>$280</strong></div><button>Add</button></footer></div></article>",
+      "css": ".ds-web-product-card { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; background: rgba(255,255,255,0.98); border: 1px solid rgba(217,213,203,0.82); border-radius: var(--radius-md); overflow: hidden; transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; } .ds-web-product-card:hover { border-color: rgba(201,167,109,0.72); box-shadow: 0 6px 12px rgba(17,16,13,0.06); transform: translateY(-2px); } .ds-web-product-image { min-width: 0; width: 100%; aspect-ratio: 1 / 1; display: grid; place-items: center; overflow: hidden; padding: var(--space-5); background: radial-gradient(circle at 50% 44%, rgba(255,244,220,0.72), rgba(255,255,255,0) 38%), var(--color-surface); } .ds-web-product-body { min-width: 0; min-height: 240px; display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4); color: var(--color-text-primary); } .ds-web-product-meta { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); } .ds-web-product-body footer { min-width: 0; margin-top: auto; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); } .ds-web-product-body strong, .ds-web-product-body button { white-space: nowrap; } @media (max-width: 420px) { .ds-web-product-body { min-height: 236px; } .ds-web-product-body footer { grid-template-columns: 1fr; align-items: stretch; } .ds-web-product-body button { width: 100%; } }"
+    },
+    {
+      "name": "Luxury Footer",
+      "kind": "footer",
+      "refersTo": "site-footer",
+      "description": "Compact dark-champagne closing band with aligned wordmark, reserved slogan, and utility links.",
+      "html": "<footer class=\"ds-web-footer\"><div><strong>Bespoke</strong><p>Reserved curation, impeccable care, and choices made for few.</p></div><nav><a href=\"#\">Privacy</a><a href=\"#\">Catalog</a><a href=\"#\">Support</a></nav></footer>",
+      "css": ".ds-web-footer { min-height: 136px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--space-6); padding: var(--space-5) 0 var(--space-4); background: #6b4f22; color: #fff4dc; border-top: 1px solid rgba(255,244,220,0.24); } .ds-web-footer strong { font-family: var(--font-display); font-size: clamp(1.45rem, 3vw, 2.1rem); letter-spacing: 0.09em; text-transform: uppercase; } .ds-web-footer p { max-width: 46ch; color: rgba(255,244,220,0.78); font-size: 0.9rem; line-height: 1.55; } .ds-web-footer nav { display: flex; align-items: end; justify-content: flex-end; flex-wrap: wrap; gap: var(--space-4); } .ds-web-footer a { color: rgba(255,244,220,0.84); text-decoration: none; font-size: 0.9rem; font-weight: 800; } @media (max-width: 760px) { .ds-web-footer { min-height: 170px; grid-template-columns: 1fr; align-items: start; } .ds-web-footer nav { justify-content: flex-start; } }"
+    },
+    {
+      "name": "Filter Panel",
+      "kind": "card",
+      "refersTo": "filter-panel",
+      "description": "Admin-disciplined catalog filter panel with active chips, clear-all control, and a discreet collapsed state.",
+      "html": "<aside class=\"ds-web-filter\"><h1>Catalog</h1><label><span>Search</span><input placeholder=\"Product, SKU, or tag\" /></label><label><span>Category</span><select><option>All</option></select></label><div class=\"ds-web-active-filters\"><button>Search: kit</button><button>Category: Rituals</button><button>Clear filters</button></div><button>Hide filters</button></aside>",
+      "css": ".ds-web-filter { display: grid; gap: var(--space-4); padding: var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: rgba(255,255,255,0.98); } .ds-web-filter h1 { margin: 0; color: var(--color-brand-primary); font-family: var(--font-display); font-size: 2rem; line-height: 1; } .ds-web-filter label { display: grid; gap: var(--space-2); color: var(--color-text-secondary); font-size: 0.92rem; font-weight: 700; } .ds-web-filter input, .ds-web-filter select { min-height: 44px; width: 100%; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text-primary); padding: 0 var(--space-3); font: inherit; } .ds-web-active-filters { display: flex; flex-wrap: wrap; gap: var(--space-2); } .ds-web-active-filters button { min-height: 32px; border: 1px solid rgba(201,167,109,0.48); border-radius: 999px; padding: 0 var(--space-3); background: rgba(255,244,220,0.42); color: var(--color-champagne-ink); font-weight: 800; } .ds-web-filter > button { min-height: 44px; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--color-brand-primary); font-weight: 700; cursor: pointer; }"
+    },
+    {
+      "name": "Checkout Summary",
+      "kind": "card",
+      "refersTo": "checkout-summary",
+      "description": "Concierge-like purchase review panel with item preview, clear totals, reassurance copy, and a primary payment path.",
+      "html": "<aside class=\"ds-web-summary\"><p>Reserved summary</p><h2>Your order</h2><article><span>Signature Selection</span><strong>$280</strong></article><dl><div><dt>Products</dt><dd>$280</dd></div><div><dt>Delivery</dt><dd>After ZIP code</dd></div><div><dt>Partial total</dt><dd>$280</dd></div></dl><ul><li>Protected payment outside the catalog.</li><li>Support available before finalization.</li></ul></aside>",
+      "css": ".ds-web-summary { display: grid; gap: var(--space-4); background: rgba(255,255,255,0.98); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-5); color: var(--color-text-primary); } .ds-web-summary h2, .ds-web-summary p { margin: 0; } .ds-web-summary p { color: var(--color-champagne-strong); font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; } .ds-web-summary article, .ds-web-summary dl div { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); } .ds-web-summary dl { display: grid; gap: var(--space-3); margin: 0; } .ds-web-summary dl div:last-child { border-top: 1px solid var(--color-border); padding-top: var(--space-3); color: var(--color-brand-primary); font-weight: 900; } .ds-web-summary dt, .ds-web-summary dd { margin: 0; } .ds-web-summary ul { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; color: var(--color-text-secondary); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "White Boutique, Black Signature",
+    "overview": "The web app is a customer-facing catalog, not an admin dashboard and not a generic landing page. It should borrow the admin's visual discipline: structured surfaces, crisp controls, clear states, and a serious black-white-champagne system. It should not borrow the admin's operational density or dashboard feeling. The storefront needs to remain a catalog first: browse, inspect, add to cart, ask through WhatsApp, and checkout.\n\nThe current direction should move away from an artisanal mood. The user should feel exclusivity even before the final logo lands in the project. White remains dominant, black creates authority, and champagne gold appears only as a signature: the real logo when it exists, active navigation, focus, selected state, and premium detail. Product imagery and spacing should do most of the emotional work.",
+    "keyCharacteristics": [
+      "Catalog-first, not admin-first: browsing and product inspection stay central.",
+      "Admin-inspired discipline: consistent buttons, panels, filters, empty states, and checkout controls.",
+      "Predominantly white viewport with black and champagne accents from the future logo palette.",
+      "No placeholder logo marks. If no real logo is configured, show the wordmark only.",
+      "Luxury through restraint, space, precise edges, and strong hierarchy rather than craft texture.",
+      "Mobile-friendly catalog behavior: readable product cards, easy cart access, and filters that do not dominate.",
+      "Footer as a compact dark-champagne closing signature: aligned wordmark, refined slogan, and useful links."
+    ],
+    "rules": [
+      {
+        "name": "The Catalog Luxury Rule",
+        "body": "The product is the hero. Use white space, restrained borders, and precise image wells before adding decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The Logo Palette Rule",
+        "body": "When the final logo is added, tune `--color-brand-primary` and `--color-brand-accent` to match it; do not add new brand colors unless the logo demands them.",
+        "section": "colors"
+      },
+      {
+        "name": "The Catalog Is Not A Poster Rule",
+        "body": "Keep hero type premium but controlled. The old `8rem` ceiling is too loud for this luxury catalog. The first product row should feel close, not buried below a campaign poster.",
+        "section": "typography"
+      },
+      {
+        "name": "The Card Action Fit Rule",
+        "body": "Product-card price and add action must never collide with the card border. On narrow cards, stack the action below the price and let the button span the available width.",
+        "section": "components"
+      },
+      {
+        "name": "The Dark Champagne Closing Signature Rule",
+        "body": "The footer should close the storefront as a compact dark-champagne brand band with aligned wordmark, refined slogan, and useful links without stealing space from the home.",
+        "section": "components"
+      },
+      {
+        "name": "The Product Light Rule",
+        "body": "Elevation should make the product feel staged. If it makes the UI chrome feel busy, reduce it.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep the page clearly a catalog: product grid, product detail, cart, checkout, and support flows remain primary.",
+      "Do pull visual discipline from admin: structured panels, consistent controls, crisp borders, and predictable states.",
+      "Do use white as the dominant luxury signal.",
+      "Do reserve champagne for logo, active navigation, focus, selected state, and premium hover details.",
+      "Do remove placeholder iconography when the real logo is not available.",
+      "Do use responsive card footers so add-to-cart actions stay inside the card border at every viewport.",
+      "Do keep the footer aligned and grounded as the final brand signature of the page.",
+      "Do tune the final logo colors into the shared design-system tokens rather than scattering one-off values in `storefront.css`."
+    ],
+    "donts": [
+      "Don't turn the storefront into an admin dashboard. Borrow discipline, not operational density.",
+      "Don't let the catalog feel artisanal, rustic, handmade, or like a craft marketplace.",
+      "Don't use champagne as a large filled section, texture, or decorative gradient.",
+      "Don't make the hero so large that it hides the catalog's purpose.",
+      "Don't render transparent or empty hero badges above the brand name.",
+      "Don't use many card styles. Product cards, filter panels, summary panels, and empty states should feel like one family.",
+      "Don't create new button vocabulary in `apps/web` when the shared design-system buttons already define the action language."
+    ]
+  }
+}

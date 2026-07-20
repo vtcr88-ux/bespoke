@@ -1,0 +1,278 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-19T20:26:00-03:00",
+  "title": "Design System: Bespoke",
+  "extensions": {
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "displayName": "Gallery White",
+        "canonical": "#ffffff",
+        "tonalRamp": ["oklch(15% 0 0)", "oklch(27% 0 0)", "oklch(39% 0 0)", "oklch(51% 0 0)", "oklch(63% 0 0)", "oklch(75% 0 0)", "oklch(87% 0 0)", "oklch(99% 0 0)"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface White",
+        "canonical": "#ffffff",
+        "tonalRamp": ["oklch(15% 0 0)", "oklch(27% 0 0)", "oklch(39% 0 0)", "oklch(51% 0 0)", "oklch(63% 0 0)", "oklch(75% 0 0)", "oklch(87% 0 0)", "oklch(99% 0 0)"]
+      },
+      "surface-elevated": {
+        "role": "neutral",
+        "displayName": "Elevated Ivory",
+        "canonical": "#f7f4ee",
+        "tonalRamp": ["oklch(18% 0.012 85)", "oklch(29% 0.012 85)", "oklch(40% 0.012 85)", "oklch(51% 0.012 85)", "oklch(63% 0.012 85)", "oklch(75% 0.012 85)", "oklch(87% 0.012 85)", "oklch(96% 0.012 85)"]
+      },
+      "surface-muted": {
+        "role": "neutral",
+        "displayName": "Muted Ivory",
+        "canonical": "#f3f0ea",
+        "tonalRamp": ["oklch(17% 0.014 85)", "oklch(28% 0.014 85)", "oklch(40% 0.014 85)", "oklch(52% 0.014 85)", "oklch(64% 0.014 85)", "oklch(76% 0.014 85)", "oklch(88% 0.014 85)", "oklch(95% 0.014 85)"]
+      },
+      "text-primary": {
+        "role": "neutral",
+        "displayName": "Ink Text",
+        "canonical": "#11100d",
+        "tonalRamp": ["oklch(15% 0.01 85)", "oklch(25% 0.01 85)", "oklch(35% 0.01 85)", "oklch(45% 0.01 85)", "oklch(58% 0.01 85)", "oklch(70% 0.01 85)", "oklch(84% 0.01 85)", "oklch(96% 0.01 85)"]
+      },
+      "text-secondary": {
+        "role": "neutral",
+        "displayName": "Warm Graphite Text",
+        "canonical": "#5d5a52",
+        "tonalRamp": ["oklch(18% 0.012 85)", "oklch(28% 0.012 85)", "oklch(38% 0.012 85)", "oklch(48% 0.012 85)", "oklch(58% 0.012 85)", "oklch(70% 0.012 85)", "oklch(82% 0.012 85)", "oklch(94% 0.012 85)"]
+      },
+      "brand-primary": {
+        "role": "primary",
+        "displayName": "Signature Black",
+        "canonical": "#090907",
+        "tonalRamp": ["oklch(10% 0.008 85)", "oklch(18% 0.008 85)", "oklch(28% 0.008 85)", "oklch(38% 0.008 85)", "oklch(50% 0.008 85)", "oklch(62% 0.008 85)", "oklch(78% 0.008 85)", "oklch(92% 0.008 85)"]
+      },
+      "brand-secondary": {
+        "role": "secondary",
+        "displayName": "Soft Black",
+        "canonical": "#2a2925",
+        "tonalRamp": ["oklch(12% 0.01 85)", "oklch(22% 0.01 85)", "oklch(32% 0.01 85)", "oklch(42% 0.01 85)", "oklch(54% 0.01 85)", "oklch(66% 0.01 85)", "oklch(80% 0.01 85)", "oklch(94% 0.01 85)"]
+      },
+      "champagne-accent": {
+        "role": "primary",
+        "displayName": "Champagne Gold",
+        "canonical": "#c9a76d",
+        "tonalRamp": ["oklch(18% 0.06 82)", "oklch(28% 0.07 82)", "oklch(38% 0.08 82)", "oklch(50% 0.09 82)", "oklch(62% 0.09 82)", "oklch(74% 0.08 82)", "oklch(86% 0.055 82)", "oklch(95% 0.03 82)"]
+      },
+      "champagne-soft": {
+        "role": "secondary",
+        "displayName": "Soft Champagne",
+        "canonical": "#efe4cf",
+        "tonalRamp": ["oklch(18% 0.035 82)", "oklch(30% 0.04 82)", "oklch(42% 0.045 82)", "oklch(54% 0.045 82)", "oklch(66% 0.04 82)", "oklch(78% 0.035 82)", "oklch(88% 0.026 82)", "oklch(96% 0.018 82)"]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Pale Champagne Line",
+        "canonical": "#ddd7ca",
+        "tonalRamp": ["oklch(18% 0.018 82)", "oklch(30% 0.018 82)", "oklch(42% 0.018 82)", "oklch(54% 0.018 82)", "oklch(66% 0.018 82)", "oklch(78% 0.018 82)", "oklch(88% 0.016 82)", "oklch(95% 0.012 82)"]
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Confirmation Green",
+        "canonical": "#2f6b4f",
+        "tonalRamp": ["oklch(18% 0.04 150)", "oklch(28% 0.055 150)", "oklch(38% 0.07 150)", "oklch(50% 0.08 150)", "oklch(62% 0.07 150)", "oklch(74% 0.055 150)", "oklch(86% 0.035 150)", "oklch(95% 0.02 150)"]
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "Warning Amber",
+        "canonical": "#9a6a28",
+        "tonalRamp": ["oklch(18% 0.055 70)", "oklch(28% 0.07 70)", "oklch(38% 0.085 70)", "oklch(50% 0.095 70)", "oklch(62% 0.08 70)", "oklch(74% 0.06 70)", "oklch(86% 0.04 70)", "oklch(95% 0.025 70)"]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Containment Red",
+        "canonical": "#9d3737",
+        "tonalRamp": ["oklch(18% 0.06 25)", "oklch(28% 0.075 25)", "oklch(38% 0.09 25)", "oklch(50% 0.1 25)", "oklch(62% 0.085 25)", "oklch(74% 0.06 25)", "oklch(86% 0.04 25)", "oklch(95% 0.025 25)"]
+      },
+      "info": {
+        "role": "tertiary",
+        "displayName": "Information Blue",
+        "canonical": "#435f74",
+        "tonalRamp": ["oklch(18% 0.035 240)", "oklch(28% 0.045 240)", "oklch(38% 0.055 240)", "oklch(50% 0.06 240)", "oklch(62% 0.052 240)", "oklch(74% 0.04 240)", "oklch(86% 0.027 240)", "oklch(95% 0.016 240)"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Editorial Display",
+        "purpose": "Brand, hero, catalog headings, and storefront moments."
+      },
+      "headline": {
+        "displayName": "Editorial Headline",
+        "purpose": "Storefront sections, product detail, cart, and checkout."
+      },
+      "title": {
+        "displayName": "Product Title",
+        "purpose": "Cards, panels, metrics, filters, and admin blocks."
+      },
+      "body": {
+        "displayName": "Reading Text",
+        "purpose": "Descriptions, help text, support content, and transactional flows."
+      },
+      "label": {
+        "displayName": "Interface Label",
+        "purpose": "Navigation, fields, tables, buttons, and badges."
+      }
+    },
+    "shadows": [
+      {
+        "name": "soft-surface",
+        "value": "0 18px 48px rgba(17, 16, 13, 0.08)",
+        "purpose": "Product cards, filters, panels, and checkout summaries at rest."
+      },
+      {
+        "name": "lifted-surface",
+        "value": "0 28px 70px rgba(17, 16, 13, 0.12)",
+        "purpose": "Card hover, product media, and panels that need stronger presence."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-fast",
+        "value": "160ms ease",
+        "purpose": "Hover, background, border, and button lift transitions."
+      },
+      {
+        "name": "button-loading-spin",
+        "value": "800ms linear infinite",
+        "purpose": "Spinner inside loading buttons."
+      },
+      {
+        "name": "skeleton-shimmer",
+        "value": "1.4s ease-in-out infinite",
+        "purpose": "Soft champagne loading skeletons."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "web-mobile",
+        "value": "760px"
+      },
+      {
+        "name": "web-tablet",
+        "value": "1024px"
+      },
+      {
+        "name": "admin-collapse",
+        "value": "1100px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary buy, save, continue, or recovery action.",
+      "html": "<button class=\"ds-btn-primary\">Continue</button>",
+      "css": ".ds-btn-primary { min-height: 44px; border: 1px solid transparent; border-radius: var(--radius-sm); padding: 0 var(--space-4); display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); background: var(--color-brand-primary); color: #fff; font-weight: 700; cursor: pointer; transition: transform 160ms ease, background 160ms ease, border-color 160ms ease; } .ds-btn-primary:hover:not(:disabled) { transform: translateY(-1px); } .ds-btn-primary:focus-visible { outline: 3px solid rgba(184, 134, 75, 0.45); outline-offset: 3px; } .ds-btn-primary:disabled { cursor: not-allowed; opacity: 0.6; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Secondary action for admin, cart, filters, and checkout.",
+      "html": "<button class=\"ds-btn-secondary\">Export</button>",
+      "css": ".ds-btn-secondary { min-height: 44px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 0 var(--space-4); display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); background: var(--color-surface); color: var(--color-brand-primary); font-weight: 700; cursor: pointer; transition: transform 160ms ease, background 160ms ease, border-color 160ms ease; } .ds-btn-secondary:hover:not(:disabled) { transform: translateY(-1px); border-color: rgba(201, 167, 109, 0.72); } .ds-btn-secondary:focus-visible { outline: 3px solid rgba(184, 134, 75, 0.45); outline-offset: 3px; } .ds-btn-secondary:disabled { cursor: not-allowed; opacity: 0.6; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Low-emphasis action that should not compete with the primary action.",
+      "html": "<button class=\"ds-btn-ghost\">Close</button>",
+      "css": ".ds-btn-ghost { min-height: 44px; border: 1px solid transparent; border-radius: var(--radius-sm); padding: 0 var(--space-4); display: inline-flex; align-items: center; justify-content: center; background: transparent; color: var(--color-brand-primary); font-weight: 700; cursor: pointer; transition: transform 160ms ease, background 160ms ease; } .ds-btn-ghost:hover:not(:disabled) { transform: translateY(-1px); background: var(--color-surface-elevated); } .ds-btn-ghost:focus-visible { outline: 3px solid rgba(184, 134, 75, 0.45); outline-offset: 3px; }"
+    },
+    {
+      "name": "Icon Button",
+      "kind": "button",
+      "refersTo": "icon-button",
+      "description": "Compact square action with an accessible label.",
+      "html": "<button class=\"ds-icon-action\" aria-label=\"Open menu\"><svg aria-hidden=\"true\" viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M4 7h16M4 12h16M4 17h16\"/></svg></button>",
+      "css": ".ds-icon-action { width: 44px; height: 44px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text-primary); display: inline-grid; place-items: center; cursor: pointer; transition: transform 160ms ease, border-color 160ms ease, background 160ms ease; } .ds-icon-action:hover { transform: translateY(-1px); border-color: rgba(201, 167, 109, 0.72); } .ds-icon-action:focus-visible { outline: 3px solid rgba(184, 134, 75, 0.45); outline-offset: 3px; }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge-neutral",
+      "description": "Compact badge for neutral or semantic status.",
+      "html": "<span class=\"ds-status-badge\">Available</span>",
+      "css": ".ds-status-badge { min-height: 24px; display: inline-flex; align-items: center; border-radius: 999px; padding: 0 var(--space-3); font-size: 0.78rem; font-weight: 700; border: 1px solid var(--color-border); color: var(--color-text-secondary); background: transparent; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Default field for filters, checkout, and admin forms.",
+      "html": "<label class=\"ds-field-demo\"><span>Name</span><input placeholder=\"Full name\" /></label>",
+      "css": ".ds-field-demo { display: grid; gap: var(--space-2); color: var(--color-text-secondary); font-size: 0.92rem; font-weight: 700; } .ds-field-demo input { min-height: 44px; width: 100%; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text-primary); padding: 0 var(--space-3); font: inherit; } .ds-field-demo input::placeholder { color: var(--color-text-secondary); opacity: 0.78; } .ds-field-demo input:focus-visible { outline: 3px solid rgba(184, 134, 75, 0.45); outline-offset: 3px; }"
+    },
+    {
+      "name": "Skeleton",
+      "kind": "custom",
+      "refersTo": "skeleton",
+      "description": "Soft champagne loading layer that preserves layout.",
+      "html": "<span class=\"ds-skeleton-demo\"></span>",
+      "css": ".ds-skeleton-demo { display: block; width: 240px; min-height: 1rem; border-radius: var(--radius-sm); background: linear-gradient(90deg, #eee7dc, #faf6ef, #eee7dc); background-size: 220% 100%; animation: ds-demo-shimmer 1.4s ease-in-out infinite; } @keyframes ds-demo-shimmer { to { background-position: -220% 0; } } @media (prefers-reduced-motion: reduce) { .ds-skeleton-demo { animation: none; } }"
+    },
+    {
+      "name": "Empty State",
+      "kind": "card",
+      "refersTo": "empty-state",
+      "description": "Empty state with clear guidance and optional recovery action.",
+      "html": "<section class=\"ds-empty-demo\"><h2>Nothing found</h2><p>Adjust the filters to see other options.</p><button>Clear filters</button></section>",
+      "css": ".ds-empty-demo { padding: var(--space-7) var(--space-5); text-align: center; border: 1px dashed var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text-primary); } .ds-empty-demo h2 { margin: 0 0 var(--space-2); font-family: var(--font-body); font-size: 1.25rem; line-height: 1.2; } .ds-empty-demo p { margin: 0 auto var(--space-4); max-width: 42ch; color: var(--color-text-secondary); line-height: 1.65; } .ds-empty-demo button { min-height: 44px; border: 1px solid transparent; border-radius: var(--radius-sm); padding: 0 var(--space-4); background: var(--color-brand-primary); color: #fff; font-weight: 700; cursor: pointer; } .ds-empty-demo button:focus-visible { outline: 3px solid rgba(184, 134, 75, 0.45); outline-offset: 3px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Private Gallery",
+    "overview": "Bespoke should feel like a private buying gallery: predominantly white, highly controlled, with black as the authority signature and champagne gold as a rare mark of exclusivity. The admin interface provides the product discipline: clear components, crisp hierarchy, compact controls, readable panels, and predictable states. The storefront should inherit that confidence without becoming an admin screen.\n\nThe brand promise is luxury and exclusivity even when the surface is only a catalog. The customer should feel they are browsing a selective curation, not a handmade market or generic storefront. Give products room, remove rustic cues, avoid decorative texture, and let the future logo become the final source of truth for the black and champagne values.",
+    "keyCharacteristics": [
+      "Predominantly white surfaces with warm tonal layers only where they separate content or state.",
+      "Near-black brand color for decisions, identity, admin authority, and primary actions.",
+      "Champagne gold as a rare signature for logo marks, active states, focus, and prestige details.",
+      "Compact, accessible, consistent components that bring admin discipline into the storefront.",
+      "Restrained luxury: less craft texture, less ornament, more space, rhythm, and confidence."
+    ],
+    "rules": [
+      {
+        "name": "The Champagne Restraint Rule",
+        "body": "Champagne gold is never a generic fill. If more than 10% of a screen is gold, the interface stops feeling exclusive and starts feeling themed.",
+        "section": "colors"
+      },
+      {
+        "name": "The White Gallery Rule",
+        "body": "White is the luxury here. Cream, sand, and craft-tinted backgrounds may appear as functional layers, never as the dominant atmosphere.",
+        "section": "colors"
+      },
+      {
+        "name": "The Display Discipline Rule",
+        "body": "Never use Cormorant for labels, inputs, buttons, tables, or controls. Product luxury comes from correct hierarchy, not applying the display font everywhere.",
+        "section": "typography"
+      },
+      {
+        "name": "The Gallery Shadow Rule",
+        "body": "Shadows should feel like gallery lighting, not floating boxes. If the shadow is more noticeable than the product, it is wrong.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep the storefront predominantly white, with black and champagne as brand and decision accents.",
+      "Do bring admin visual discipline into the storefront: consistent components, controlled spacing, clear buttons, and predictable states.",
+      "Do use Cormorant for editorial storefront moments and Inter for all task flows.",
+      "Do let products breathe. Catalog cards should feel curated, not handmade.",
+      "Do recalibrate `brand-primary` and `champagne-accent` when the final logo is added."
+    ],
+    "donts": [
+      "Don't let the page feel artisanal, handmade, rustic, or market-stall-like. The brand must feel exclusive.",
+      "Don't use champagne gold as a broad background, decorative gradient, or texture. It is a rare signature.",
+      "Don't turn white into a dominant cream. Ivory is a functional layer, not the brand atmosphere.",
+      "Don't use thick side borders as accents on cards, alerts, or panels.",
+      "Don't split button vocabulary between admin and storefront. The same action must feel like the same family.",
+      "Don't apply large shadows to every card by default. Elevation needs a job."
+    ]
+  }
+}

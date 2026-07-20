@@ -1,0 +1,23 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: bespoke-mysql
+    command: --mysql-native-password=ON
+    environment:
+      MYSQL_DATABASE: bespoke
+      MYSQL_USER: bespoke_app
+      MYSQL_PASSWORD: bespoke_dev_password
+      MYSQL_ROOT_PASSWORD: bespoke_local_root_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - bespoke_mysql:/var/lib/mysql
+      - ./database/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  bespoke_mysql:

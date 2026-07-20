@@ -1,0 +1,38 @@
+{
+  "name": "bespoke",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Bespoke premium e-commerce platform",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm-run-all --parallel dev:*",
+    "dev:web": "npm --workspace @bespoke/web run dev",
+    "dev:admin": "npm --workspace @bespoke/admin run dev",
+    "dev:api": "npm --workspace @bespoke/api run dev",
+    "db:setup": "npm --workspace @bespoke/api run db:setup",
+    "build": "npm run build --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "lint": "npm run lint --workspaces",
+    "test": "npm run test --workspaces --if-present",
+    "verify": "npm run lint && npm run typecheck && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.7.0",
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^20.14.12",
+    "eslint": "^9.7.0",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.0.0",
+    "vite": "8.1.5",
+    "vitest": "^4.1.10"
+  },
+  "engines": {
+    "node": ">=20.11"
+  }
+}
