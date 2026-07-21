@@ -18,3 +18,10 @@ storage/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Logs locais
+logs/
+*.out
+
+# Capturas geradas por ferramentas
+apps/web/.impeccable/screenshots/

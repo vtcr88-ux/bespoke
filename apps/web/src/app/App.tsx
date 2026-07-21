@@ -137,7 +137,7 @@ function HomePage() {
   const image = storefront?.heroImageUrl ?? heroImage;
 
   return (
-    <>
+    <div className="home-page">
       <section className="hero" style={{ "--hero-image": `url(${image})` } as CSSProperties}>
         <div className="hero__content">
           <h1>{storefront?.heroTitle ?? "Bespoke"}</h1>
@@ -153,10 +153,10 @@ function HomePage() {
               Atendimento exclusivo
             </Link>
           </div>
-         </div>
+        </div>
       </section>
       <CatalogPreview />
-    </>
+    </div>
   );
 }
 
@@ -174,7 +174,7 @@ function CatalogPreview() {
       <div className="product-grid product-grid--preview">
         {isLoading
           ? Array.from({ length: 4 }, (_, index) => <ProductSkeleton key={index} />)
-          : data?.items.map((product) => <ProductCard product={product} key={product.id} />)}
+          : data?.items.map((product, index) => <ProductCard product={product} key={product.id} homePreview motionIndex={index} />)}
       </div>
     </section>
   );
@@ -359,11 +359,35 @@ function CatalogPage() {
   );
 }
 
-function ProductCard({ product }: { product: Product }) {
+function ProductCard({ product, homePreview = false, motionIndex }: { product: Product; homePreview?: boolean; motionIndex?: number }) {
   const add = useCartStore((state) => state.add);
+  const [justAdded, setJustAdded] = useState(false);
+  const feedbackTimerRef = useRef<number>();
   const lowStock = product.stock <= product.lowStockThreshold;
+
+  useEffect(() => {
+    return () => {
+      if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
+    };
+  }, []);
+
+  function handleAdd() {
+    add(productToCart(product));
+    if (!homePreview) return;
+    setJustAdded(true);
+    if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
+    feedbackTimerRef.current = window.setTimeout(() => setJustAdded(false), 1200);
+  }
+
+  const cardStyle =
+    motionIndex == null
+      ? undefined
+      : ({
+          "--motion-index": motionIndex
+        } as CSSProperties);
+
   return (
-    <article className="product-card">
+    <article className={homePreview ? "product-card product-card--home-preview" : "product-card"} style={cardStyle}>
       <Link to={`/produto/${product.slug}`} className="product-card__image">
         <img loading="lazy" src={product.images[0]!.url} alt={product.images[0]!.alt} />
       </Link>
@@ -383,8 +407,13 @@ function ProductCard({ product }: { product: Product }) {
             <span>Valor</span>
             <strong>{formatMoney(product.priceInCents)}</strong>
           </div>
-          <Button type="button" className="product-card__button" onClick={() => add(productToCart(product))}>
-            Adicionar
+          <Button
+            type="button"
+            className={justAdded ? "product-card__button product-card__button--added" : "product-card__button"}
+            aria-label={justAdded ? `${product.name} adicionado ao carrinho` : `Adicionar ${product.name} ao carrinho`}
+            onClick={handleAdd}
+          >
+            {justAdded ? "Adicionado" : "Adicionar"}
           </Button>
         </div>
       </div>
