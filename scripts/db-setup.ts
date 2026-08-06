@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
@@ -18,19 +18,47 @@ const connection = await mysql.createConnection({
 });
 
 try {
-  const files = [
-    "database/migrations/001_initial_schema.sql",
-    "database/seeds/001_demo_catalog.sql"
-  ];
+  const migrationsDirectory = resolve(root, "database/migrations");
+  const migrations = readdirSync(migrationsDirectory)
+    .filter((file) => file.endsWith(".sql"))
+    .sort();
 
-  for (const file of files) {
-    const sql = readFileSync(resolve(root, file), "utf8");
-    await connection.query(sql);
-    if (file.includes("001_initial_schema")) {
-      await ensureWhatsappItemImageColumn();
-    }
-    console.log(`Applied ${file}`);
+  await connection.query(
+    readFileSync(resolve(migrationsDirectory, migrations[0]!), "utf8"),
+  );
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      migration_name VARCHAR(160) PRIMARY KEY,
+      applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await connection.execute(
+    "INSERT IGNORE INTO schema_migrations (migration_name) VALUES (?)",
+    [migrations[0]],
+  );
+
+  for (const migration of migrations.slice(1)) {
+    const [rows] = await connection.query<
+      Array<RowDataPacket & { count: number }>
+    >(
+      "SELECT COUNT(*) AS count FROM schema_migrations WHERE migration_name = ?",
+      [migration],
+    );
+    if ((rows[0]?.count ?? 0) > 0) continue;
+    await connection.query(
+      readFileSync(resolve(migrationsDirectory, migration), "utf8"),
+    );
+    await connection.execute(
+      "INSERT INTO schema_migrations (migration_name) VALUES (?)",
+      [migration],
+    );
+    console.log(`Applied database/migrations/${migration}`);
   }
+
+  await ensureWhatsappItemImageColumn();
+  await connection.query(
+    readFileSync(resolve(root, "database/seeds/001_demo_catalog.sql"), "utf8"),
+  );
 
   console.log("MySQL schema and seed are ready.");
 } finally {

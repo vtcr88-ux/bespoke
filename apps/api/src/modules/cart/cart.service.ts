@@ -1,24 +1,22 @@
-import type { CartItemInput, PricedCart, ShippingQuote } from "@bespoke/contracts";
+import type { CartItemInput, PricedCart } from "@bespoke/contracts";
 import { ApiError } from "../../shared/api-error.js";
 import { CatalogService } from "../catalog/catalog.service.js";
-import { ShippingService } from "../shipping/shipping.service.js";
 
 export class CartService {
-  constructor(private readonly catalog: CatalogService, private readonly shipping: ShippingService) {}
+  constructor(private readonly catalog: CatalogService) {}
 
-  async price(items: CartItemInput[], destinationPostalCode?: string): Promise<PricedCart> {
-    const snapshot = await this.priceWithoutShipping(items);
-    const shipping = await this.shipping.quote({
-      items,
-      subtotalInCents: snapshot.subtotalInCents,
-      destinationPostalCode
-    });
-
-    return this.withShipping(snapshot, shipping);
+  async price(items: CartItemInput[]): Promise<PricedCart> {
+    const snapshot = await this.priceProducts(items);
+    return {
+      ...snapshot,
+      shippingAmountInCents: null,
+      shippingMode: "whatsapp_after_payment",
+      totalInCents: snapshot.subtotalInCents - snapshot.discountInCents,
+    };
   }
 
-  async assertAvailable(items: CartItemInput[], destinationPostalCode?: string) {
-    const priced = await this.price(items, destinationPostalCode);
+  async assertAvailable(items: CartItemInput[]) {
+    const priced = await this.price(items);
     const unavailable = priced.lines.find((line) => !line.available);
     if (unavailable) {
       throw new ApiError(409, "INSUFFICIENT_STOCK", "Requested quantity is not available.");
@@ -27,7 +25,14 @@ export class CartService {
     return priced;
   }
 
-  private async priceWithoutShipping(items: CartItemInput[]): Promise<Omit<PricedCart, "shippingInCents" | "totalInCents" | "shipping">> {
+  private async priceProducts(
+    items: CartItemInput[],
+  ): Promise<
+    Omit<
+      PricedCart,
+      "shippingAmountInCents" | "shippingMode" | "totalInCents"
+    >
+  > {
     const aggregated = new Map<string, number>();
     for (const item of items) {
       aggregated.set(item.productId, (aggregated.get(item.productId) ?? 0) + item.quantity);
@@ -66,15 +71,4 @@ export class CartService {
     };
   }
 
-  private withShipping(
-    cart: Omit<PricedCart, "shippingInCents" | "totalInCents" | "shipping">,
-    shipping: ShippingQuote
-  ): PricedCart {
-    return {
-      ...cart,
-      shippingInCents: shipping.priceInCents,
-      totalInCents: cart.subtotalInCents - cart.discountInCents + shipping.priceInCents,
-      shipping
-    };
-  }
 }

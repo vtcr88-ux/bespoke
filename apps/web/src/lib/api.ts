@@ -1,39 +1,82 @@
-import type {
-  CatalogResponse,
-  CheckoutRequest,
-  CheckoutResponse,
-  PricedCart,
-  Product,
-  StorefrontSettings,
-  WhatsappRequest,
-  WhatsappResponse
+import {
+  maxCatalogPageSize,
+  type CatalogResponse,
+  type Category,
+  type CheckoutRequest,
+  type CheckoutResponse,
+  type CheckoutStatusResponse,
+  type PricedCart,
+  type Product,
+  type StorefrontSettings,
+  type WhatsappRequest,
+  type WhatsappResponse,
 } from "@bespoke/contracts";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3333";
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:3333";
+export const storefrontEventsUrl = `${apiBaseUrl}/storefront/events`;
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
+    ...init,
+    cache: "no-store",
     credentials: "include",
     headers: {
       "content-type": "application/json",
-      ...init?.headers
+      ...init?.headers,
     },
-    ...init
   });
 
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
-    throw new Error(payload?.error?.message ?? "Nao foi possivel concluir a solicitacao.");
+    throw new Error(
+      payload?.error?.message ?? "Nao foi possivel concluir a solicitacao.",
+    );
   }
+
+  if (response.status === 204) return undefined as T;
 
   return response.json() as Promise<T>;
 }
 
-export function listProducts(searchParams: URLSearchParams, cursor?: string) {
+export function listProducts(
+  searchParams: URLSearchParams,
+  cursor?: string,
+  signal?: AbortSignal,
+) {
   const params = new URLSearchParams(searchParams);
-  params.set("limit", "8");
+  if (!params.has("limit")) params.set("limit", "8");
   if (cursor) params.set("cursor", cursor);
-  return api<CatalogResponse>(`/catalog/products?${params.toString()}`);
+  return api<CatalogResponse>(`/catalog/products?${params.toString()}`, {
+    signal,
+  });
+}
+
+export async function listFeaturedProducts(signal?: AbortSignal) {
+  const params = new URLSearchParams({
+    featured: "true",
+    limit: String(maxCatalogPageSize),
+    sort: "featured",
+  });
+  const items: Product[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | undefined;
+
+  do {
+    const page = await listProducts(params, cursor, signal);
+    items.push(...page.items);
+    cursor = page.nextCursor ?? undefined;
+
+    if (cursor) {
+      if (seenCursors.has(cursor)) {
+        throw new Error(
+          "A paginacao dos destaques retornou um cursor repetido.",
+        );
+      }
+      seenCursors.add(cursor);
+    }
+  } while (cursor);
+
+  return { items, nextCursor: null } satisfies CatalogResponse;
 }
 
 export function getProduct(slug: string) {
@@ -44,18 +87,51 @@ export function getStorefrontSettings() {
   return api<StorefrontSettings>("/storefront/settings");
 }
 
+export function listCategories() {
+  return api<{ items: Category[] }>("/catalog/categories");
+}
+
 export function getSupportWhatsappUrl() {
   return api<{ url: string }>("/support/whatsapp");
 }
 
-export function priceCart(items: { productId: string; quantity: number }[], destinationPostalCode?: string) {
-  return api<PricedCart>("/cart/price", { method: "POST", body: JSON.stringify({ items, destinationPostalCode }) });
+export function priceCart(items: { productId: string; quantity: number }[]) {
+  return api<PricedCart>("/cart/price", {
+    method: "POST",
+    body: JSON.stringify({ items }),
+  });
 }
 
 export function createCheckout(payload: CheckoutRequest) {
-  return api<CheckoutResponse>("/checkout/mercado-pago", { method: "POST", body: JSON.stringify(payload) });
+  return api<CheckoutResponse>("/checkout/mercado-pago", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function createWhatsappRequest(payload: WhatsappRequest) {
-  return api<WhatsappResponse>("/whatsapp/requests", { method: "POST", body: JSON.stringify(payload) });
+  return api<WhatsappResponse>("/whatsapp/requests", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getCheckoutStatus(orderReference: string, token: string) {
+  return api<CheckoutStatusResponse>(
+    `/checkout/orders/${encodeURIComponent(orderReference)}`,
+    { headers: { authorization: `Bearer ${token}` } },
+  );
+}
+
+export function recordCheckoutWhatsappOpen(
+  orderReference: string,
+  token: string,
+) {
+  return api<void>(
+    `/checkout/orders/${encodeURIComponent(orderReference)}/whatsapp-open`,
+    {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+    },
+  );
 }

@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+umask 077
+
+: "${ENV_FILE:?Set ENV_FILE to the protected instance environment file}"
+source "${ENV_FILE}"
+: "${INSTANCE_ID:?INSTANCE_ID is required}"
+: "${DATABASE_HOST:=127.0.0.1}"
+: "${DATABASE_PORT:=3306}"
+: "${DATABASE_NAME:?DATABASE_NAME is required for backup}"
+: "${DATABASE_USER:?DATABASE_USER is required for backup}"
+: "${DATABASE_PASSWORD:?DATABASE_PASSWORD is required for backup}"
+: "${UPLOADS_DIR:?UPLOADS_DIR is required}"
+
+BACKUP_ROOT="${BACKUP_ROOT:-/var/backups/catalog-platform}"
+RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-14}"
+timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+archive="${BACKUP_ROOT}/${INSTANCE_ID}-${timestamp}.tar.gz"
+staging="$(mktemp -d)"
+trap 'rm -rf "${staging}"' EXIT
+mkdir -p "${BACKUP_ROOT}"
+
+export MYSQL_PWD="${DATABASE_PASSWORD}"
+mysqldump \
+  --host="${DATABASE_HOST}" \
+  --port="${DATABASE_PORT}" \
+  --user="${DATABASE_USER}" \
+  --single-transaction \
+  --routines \
+  --triggers \
+  --set-gtid-purged=OFF \
+  "${DATABASE_NAME}" | gzip -9 > "${staging}/database.sql.gz"
+gzip -t "${staging}/database.sql.gz"
+
+tar -C "${UPLOADS_DIR}" -czf "${staging}/uploads.tar.gz" .
+tar -tzf "${staging}/uploads.tar.gz" >/dev/null
+install -m 600 "${ENV_FILE}" "${staging}/instance.env"
+printf '%s\n' "${INSTANCE_ID}" > "${staging}/instance-id"
+
+tar -C "${staging}" -czf "${archive}" database.sql.gz uploads.tar.gz instance.env instance-id
+tar -tzf "${archive}" >/dev/null
+sha256sum "${archive}" > "${archive}.sha256"
+chmod 600 "${archive}" "${archive}.sha256"
+find "${BACKUP_ROOT}" -maxdepth 1 -type f -name "${INSTANCE_ID}-*.tar.gz*" -mtime "+${RETENTION_DAYS}" -delete
+printf 'Backup verified: %s\n' "${archive}"

@@ -1,0 +1,8 @@
+services:
+  mysql:
+    container_name: catalog-example-mysql
+    volumes:
+      - catalog_example_mysql:/var/lib/mysql
+
+volumes:
+  catalog_example_mysql:

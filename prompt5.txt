@@ -1,0 +1,1578 @@
+Prepare o projeto atual para funcionar como uma mini plataforma white-label,
+composta exclusivamente por:
+
+1. página pública responsiva do catálogo;
+2. painel administrativo responsivo;
+3. API e banco de dados necessários para sustentar essas duas aplicações.
+
+Preserve a estrutura, o design, os componentes, os motions, as funcionalidades
+e o comportamento atual da Bespoke sempre que estiverem funcionando
+corretamente.
+
+Não reconstrua o projeto do zero.
+Não substitua tecnologias sem necessidade técnica comprovada.
+Não implemente uma plataforma SaaS multi-tenant compartilhada.
+Não adicione tenant_id às tabelas.
+Não implemente um construtor visual drag-and-drop.
+
+A arquitetura desejada é white-label single-tenant por instalação:
+
+- um único código-base reutilizável;
+- uma implantação independente para cada marca;
+- um banco próprio para cada loja;
+- um armazenamento de imagens próprio;
+- um administrador próprio;
+- credenciais e sessões próprias;
+- domínio público próprio;
+- subdomínio administrativo próprio.
+
+Exemplo:
+
+lojadocliente.com.br
+admin.lojadocliente.com.br
+
+Cada instalação deve utilizar o mesmo core, mas não deve compartilhar dados,
+usuários, imagens, sessões ou credenciais com outra marca.
+
+Além da transformação white-label, prepare toda a infraestrutura de aplicação
+necessária para uma implantação futura em VPS Oracle.
+
+A entrega deverá incluir código, scripts, arquivos de configuração, templates e
+documentação suficientes para:
+
+- instalar dependências com `npm ci`;
+- configurar os ambientes da API, Web e Admin;
+- preparar o MySQL com migrations seguras;
+- gerar os builds de produção;
+- iniciar a API compilada;
+- servir Web e Admin pelo Nginx;
+- manter a API ativa e reiniciável;
+- preservar uploads;
+- realizar backups;
+- atualizar e reverter versões;
+- configurar posteriormente domínio, HTTPS e Cloudflare.
+
+A configuração real do domínio, DNS, HTTPS, Cloudflare e credenciais será
+realizada manualmente depois que a aplicação estiver funcional e validada.
+
+Não utilizar credenciais dos Correios, pois a integração será removida.
+
+────────────────────────────────────────────────────────────
+FASE 1 — INSPEÇÃO OBRIGATÓRIA
+────────────────────────────────────────────────────────────
+
+Antes de alterar qualquer arquivo:
+
+1. Leia:
+   - AGENTS.md;
+   - README.md;
+   - package.json;
+   - arquivos de workspace ou monorepo;
+   - migrations;
+   - schemas;
+   - arquivos de ambiente de exemplo;
+   - configuração de build e deploy.
+
+2. Mapeie a arquitetura real do projeto:
+   - página pública;
+   - painel administrativo;
+   - API;
+   - banco MySQL;
+   - autenticação;
+   - autorização;
+   - upload de imagens;
+   - Mercado Pago;
+   - Correios;
+   - cálculo por CEP;
+   - carrinho;
+   - checkout;
+   - pedidos;
+   - motions;
+   - configurações de marca.
+
+3. Identifique todos os arquivos relacionados a:
+   - API dos Correios;
+   - cálculo de frete;
+   - campos de CEP;
+   - validação de CEP;
+   - endereço de entrega;
+   - serviços de cotação;
+   - variáveis de ambiente dos Correios;
+   - componentes de interface de frete;
+   - testes de frete;
+   - estados de checkout relacionados ao frete.
+
+4. Identifique todos os valores hardcoded relacionados à Bespoke:
+   - nome;
+   - logo;
+   - favicon;
+   - cores;
+   - fontes;
+   - WhatsApp;
+   - e-mail;
+   - redes sociais;
+   - textos;
+   - imagens;
+   - SEO;
+   - domínios;
+   - URLs da API.
+
+5. Apresente um plano incremental antes da implementação.
+
+6. Informe quais arquivos serão:
+   - alterados;
+   - removidos;
+   - mantidos;
+   - migrados;
+   - criados.
+
+Não remova campos ou tabelas antes de verificar se possuem dados históricos ou
+dependências ativas.
+
+────────────────────────────────────────────────────────────
+FASE 2 — REMOÇÃO DA INTEGRAÇÃO COM OS CORREIOS
+────────────────────────────────────────────────────────────
+
+Remova de forma segura toda dependência funcional da API dos Correios e do
+cálculo automático de frete por CEP.
+
+Remova ou desative:
+
+- serviços de cotação dos Correios;
+- endpoints de cálculo de frete;
+- chamadas externas aos Correios;
+- inputs obrigatórios de CEP para cálculo;
+- loaders relacionados à cotação;
+- mensagens de erro da API dos Correios;
+- componentes exclusivos de cálculo automático;
+- bibliotecas utilizadas somente para essa integração;
+- variáveis de ambiente exclusivas dos Correios;
+- mocks e testes obsoletos.
+
+Antes de excluir dependências, confirme que não são utilizadas por outras
+funcionalidades.
+
+Preserve informações de endereço quando elas forem necessárias para:
+
+- identificação do cliente;
+- histórico de pedidos;
+- faturamento;
+- retirada;
+- entrega combinada manualmente.
+
+Não realize migrations destrutivas sem necessidade.
+
+Caso existam colunas históricas de frete, preserve-as ou migre-as de forma
+compatível com pedidos antigos.
+
+Crie uma migration segura apenas quando realmente necessária.
+
+────────────────────────────────────────────────────────────
+FASE 3 — NOVO MODELO DE ENTREGA
+────────────────────────────────────────────────────────────
+
+Implemente o modelo:
+
+shipping_mode = whatsapp_after_payment
+
+O cliente poderá pagar os produtos diretamente pela loja utilizando o Mercado
+Pago.
+
+O valor cobrado no checkout deve considerar somente os itens comercializados,
+a menos que exista outro valor explicitamente configurado pelo administrador.
+
+Não invente um valor de frete.
+Não envie valor zero como se fosse frete grátis.
+Não apresente “frete grátis” quando o frete ainda será combinado.
+
+Mostre claramente no carrinho e no checkout:
+
+“Frete não incluído. Após a confirmação do pagamento, nossa equipe entrará em
+contato pelo WhatsApp para combinar entrega, retirada e possíveis custos de
+frete.”
+
+Antes de confirmar o pagamento, apresente uma confirmação acessível:
+
+“Estou ciente de que o frete ou a retirada será combinado separadamente com a
+loja pelo WhatsApp.”
+
+Essa confirmação não deve substituir os termos legais nem ser marcada
+automaticamente.
+
+O resumo do pedido deve separar:
+
+- subtotal dos produtos;
+- descontos;
+- total pago pelo Mercado Pago;
+- frete: “A combinar pelo WhatsApp”.
+
+Não exiba:
+
+Frete: R$ 0,00
+
+quando o valor ainda não tiver sido definido.
+
+────────────────────────────────────────────────────────────
+FASE 4 — ESTADOS DO PEDIDO E DO FRETE
+────────────────────────────────────────────────────────────
+
+Adapte o modelo de pedidos para representar corretamente o novo fluxo.
+
+Avalie a criação dos seguintes estados:
+
+Payment status:
+- pending;
+- approved;
+- rejected;
+- cancelled;
+- refunded.
+
+Shipping status:
+- awaiting_payment;
+- awaiting_contact;
+- contact_started;
+- awaiting_customer_response;
+- arranged;
+- ready_for_pickup;
+- dispatched;
+- delivered;
+- cancelled.
+
+Após a aprovação do pagamento pelo Mercado Pago, o pedido deve assumir:
+
+payment_status = approved
+shipping_status = awaiting_contact
+
+Não considere o pedido entregue apenas porque o pagamento foi aprovado.
+
+Quando necessário, adicione campos como:
+
+- shipping_mode;
+- shipping_status;
+- shipping_amount;
+- shipping_notes;
+- shipping_contacted_at;
+- shipping_arranged_at;
+- delivery_method;
+- delivery_address;
+- pickup_instructions.
+
+O campo shipping_amount deve aceitar NULL enquanto o valor não estiver definido.
+
+Não utilize zero para representar um valor desconhecido.
+
+Preserve compatibilidade com pedidos existentes.
+
+────────────────────────────────────────────────────────────
+FASE 5 — WHATSAPP APÓS O PAGAMENTO
+────────────────────────────────────────────────────────────
+
+Depois da confirmação real do pagamento pelo webhook do Mercado Pago, apresente
+ao cliente uma página de sucesso contendo:
+
+- número ou código do pedido;
+- confirmação do pagamento;
+- resumo dos produtos;
+- aviso de que o frete será combinado;
+- botão para conversar com a loja pelo WhatsApp.
+
+Gere uma mensagem inicial segura e codificada para URL, semelhante a:
+
+“Olá! Meu pagamento do pedido #PEDIDO foi confirmado. Gostaria de combinar o
+frete ou a retirada.”
+
+Não inclua na URL do WhatsApp:
+
+- documento do cliente;
+- endereço completo;
+- token;
+- credenciais;
+- dados de pagamento;
+- informações sensíveis;
+- identificadores internos previsíveis quando forem desnecessários.
+
+Utilize um código público de pedido em vez do ID sequencial interno, quando
+possível.
+
+O número do WhatsApp deve vir das configurações da marca e nunca permanecer
+hardcoded.
+
+Não marque a venda como concluída somente porque o cliente clicou no WhatsApp.
+
+Registre separadamente:
+
+- pagamento aprovado;
+- clique no WhatsApp;
+- contato iniciado;
+- frete combinado;
+- pedido entregue.
+
+────────────────────────────────────────────────────────────
+FASE 6 — MERCADO PAGO
+────────────────────────────────────────────────────────────
+
+Preserve a integração atual com o Mercado Pago, corrigindo-a apenas quando
+necessário.
+
+Obrigatório:
+
+- Access Token exclusivamente no back-end;
+- chave pública somente quando tecnicamente necessária no front-end;
+- preços calculados e validados no servidor;
+- nunca confiar no total enviado pelo navegador;
+- webhook validado;
+- idempotência;
+- verificação do pagamento diretamente na API do Mercado Pago;
+- atualização do pedido somente após confirmação confiável;
+- prevenção contra processamento duplicado;
+- logs sem tokens ou dados financeiros;
+- tratamento de pagamentos pendentes, rejeitados e estornados.
+
+O front-end nunca deve decidir que um pedido foi pago.
+
+A página de retorno do Mercado Pago deve consultar a API da aplicação e mostrar
+o estado registrado pelo servidor.
+
+Não trate parâmetros da URL de retorno como prova definitiva de pagamento.
+
+────────────────────────────────────────────────────────────
+FASE 7 — MINI WHITE-LABEL
+────────────────────────────────────────────────────────────
+
+Transforme os elementos específicos da Bespoke em configurações reutilizáveis.
+
+Crie ou consolide uma configuração de marca contendo:
+
+- storeName;
+- legalName;
+- logo;
+- logoOnDark;
+- favicon;
+- primaryColor;
+- secondaryColor;
+- accentColor;
+- backgroundColor;
+- surfaceColor;
+- textColor;
+- headingFont;
+- bodyFont;
+- whatsappNumber;
+- contactEmail;
+- instagramUrl;
+- facebookUrl;
+- publicDomain;
+- adminDomain;
+- defaultMetaTitle;
+- defaultMetaDescription;
+- layoutPreset;
+- motionPreset.
+
+A configuração atual da Bespoke deve se tornar o padrão inicial, sem perder sua
+identidade, layout ou motion.
+
+Substitua valores hardcoded por:
+
+- configurações carregadas pela API;
+- variáveis CSS;
+- componentes compartilhados;
+- presets tipados;
+- dados editáveis no painel.
+
+Não crie condições como:
+
+if (storeName === 'Bespoke')
+
+Use:
+
+- theme tokens;
+- layout presets;
+- motion presets;
+- feature flags;
+- configurações tipadas.
+
+────────────────────────────────────────────────────────────
+FASE 8 — ESCOPO DO PAINEL ADMINISTRATIVO
+────────────────────────────────────────────────────────────
+
+O painel deve permitir ao cliente editar pelo celular ou computador:
+
+Identidade:
+- nome da loja;
+- logo;
+- logo para fundo escuro;
+- favicon;
+- cores;
+- tipografia.
+
+Contato:
+- WhatsApp;
+- e-mail;
+- redes sociais.
+
+Página pública:
+- textos do hero;
+- imagens desktop e mobile;
+- cards;
+- seções;
+- CTAs;
+- ordem das seções;
+- ativação ou desativação de seções;
+- rodapé;
+- informações institucionais.
+
+Catálogo:
+- produtos;
+- categorias;
+- preços;
+- promoções;
+- estoque;
+- imagens;
+- destaque de produtos.
+
+Pedidos:
+- status do pagamento;
+- status do contato;
+- status do frete;
+- observações;
+- forma de entrega;
+- retirada ou entrega;
+- valor de frete manual, quando necessário.
+
+SEO:
+- título;
+- descrição;
+- favicon;
+- imagem social;
+- textos alternativos.
+
+Não permita ao administrador editar:
+
+- JavaScript;
+- HTML arbitrário;
+- consultas SQL;
+- arquivos do servidor;
+- variáveis de ambiente;
+- tokens;
+- senhas do banco;
+- credenciais do Mercado Pago;
+- caminhos internos de armazenamento.
+
+────────────────────────────────────────────────────────────
+FASE 9 — LAYOUTS, TEMAS E MOTIONS
+────────────────────────────────────────────────────────────
+
+Preserve o layout e os motions atuais da Bespoke como presets padrão.
+
+Estruture registries tipados, por exemplo:
+
+- themeRegistry;
+- layoutRegistry;
+- motionRegistry.
+
+Exemplos:
+
+layoutPreset:
+- bespoke-premium;
+- editorial-catalog;
+- minimal-catalog.
+
+motionPreset:
+- bespoke-journey;
+- subtle;
+- none.
+
+Não implemente layouts ilimitados nem um page builder.
+
+O painel deve oferecer apenas opções previamente implementadas e testadas.
+
+As configurações devem alterar a apresentação sem duplicar:
+
+- autenticação;
+- regras de produto;
+- regras de pedido;
+- integrações;
+- segurança;
+- acesso ao banco.
+
+Implemente `prefers-reduced-motion`.
+
+Não introduza animações que provoquem layout shift ou prejudiquem o mobile.
+
+────────────────────────────────────────────────────────────
+FASE 10 — SEPARAÇÃO ENTRE INSTÂNCIAS
+────────────────────────────────────────────────────────────
+
+Prepare o projeto para executar uma implantação independente por marca.
+
+Cada instalação deve possuir:
+
+- INSTANCE_ID próprio;
+- banco MySQL próprio;
+- usuário de banco próprio;
+- SESSION_SECRET próprio;
+- CSRF_SECRET próprio;
+- armazenamento de mídia próprio;
+- administrador próprio;
+- domínio público próprio;
+- domínio administrativo próprio;
+- configuração de CORS própria;
+- backups próprios.
+
+A API não deve receber clientId ou tenantId do front-end para decidir qual banco
+consultar.
+
+A identidade da instalação deve ser definida pelo ambiente do servidor.
+
+Não crie seletor de loja no painel.
+
+Não permita que um administrador navegue entre marcas.
+
+────────────────────────────────────────────────────────────
+FASE 11 — SEGURANÇA
+────────────────────────────────────────────────────────────
+
+Audite e fortaleça:
+
+- autenticação;
+- autorização;
+- sessões;
+- SQL;
+- upload de arquivos;
+- respostas da API;
+- logs;
+- variáveis de ambiente.
+
+Obrigatório:
+
+- consultas parametrizadas ou prepared statements;
+- nenhuma concatenação de entrada em SQL;
+- validação estrita com Zod ou biblioteca já adotada;
+- rejeição de propriedades desconhecidas;
+- rate limit específico para login;
+- rate limit administrativo;
+- mensagens genéricas de autenticação;
+- proteção contra enumeração de contas;
+- hash de senha com Argon2id quando compatível;
+- cookies HttpOnly, Secure e SameSite;
+- proteção CSRF;
+- CORS por allowlist;
+- RBAC;
+- logs de auditoria;
+- ausência de stack trace em produção;
+- ausência de segredos em respostas;
+- ausência de segredos em variáveis VITE_*;
+- upload com validação real do conteúdo;
+- nomes de arquivo gerados pelo servidor;
+- limite de tamanho;
+- bloqueio de SVG quando não houver sanitização apropriada.
+
+Não trate o subdomínio do painel como mecanismo de segurança.
+
+Prepare o painel para ser protegido por Cloudflare Access, mas mantenha também
+a autenticação interna da aplicação.
+
+────────────────────────────────────────────────────────────
+FASE 12 — PREPARAÇÃO COMPLETA PARA DEPLOY NA ORACLE VPS
+────────────────────────────────────────────────────────────
+
+Além da implementação white-label, prepare integralmente o projeto para uma
+implantação manual, segura e reproduzível em uma VPS da Oracle Cloud.
+
+Não realize o deploy nesta tarefa.
+Não acesse a conta Oracle.
+Não compre ou configure domínios reais.
+Não configure DNS real.
+Não solicite credenciais reais.
+Não coloque segredos em arquivos versionados.
+
+O domínio público e o subdomínio administrativo serão configurados manualmente
+somente depois que todas as integrações, testes e builds estiverem funcionais.
+
+A preparação deve permitir que, posteriormente, o operador consiga implantar
+uma instância utilizando um fluxo documentado e previsível.
+
+ARQUITETURA DE PRODUÇÃO DESEJADA
+
+Página pública:
+- build estático gerado em `apps/web/dist`;
+- servido pelo Nginx;
+- preparado para domínio principal futuro.
+
+Painel administrativo:
+- build estático gerado em `apps/admin/dist`;
+- servido pelo Nginx;
+- preparado para subdomínio administrativo futuro.
+
+API:
+- compilada para `apps/api/dist`;
+- iniciada com Node.js em modo de produção;
+- executada como serviço persistente;
+- reiniciada automaticamente após falha ou reinicialização da VPS.
+
+Banco:
+- MySQL sem exposição pública;
+- usuário exclusivo da aplicação;
+- permissões mínimas;
+- migrations controladas;
+- backups independentes por instalação.
+
+Uploads:
+- diretório persistente fora da pasta de build e fora de diretórios temporários;
+- dados preservados entre atualizações;
+- permissões restritas ao usuário da aplicação;
+- backup independente.
+
+────────────────────────────────────────────────────────────
+12.1 — INSPEÇÃO DO AMBIENTE DE PRODUÇÃO
+────────────────────────────────────────────────────────────
+
+Antes de criar arquivos de deploy:
+
+1. Inspecione:
+   - package.json da raiz;
+   - package.json de cada aplicação;
+   - scripts de build;
+   - scripts de banco;
+   - saída real da compilação;
+   - dependências necessárias em runtime;
+   - variáveis públicas e privadas;
+   - estrutura atual de uploads;
+   - porta utilizada pela API;
+   - health checks existentes;
+   - monorepo ou workspaces utilizados.
+
+2. Verifique se os comandos abaixo realmente existem e funcionam:
+   - npm ci;
+   - npm run build;
+   - npm run db:setup;
+   - node apps/api/dist/server.js.
+
+3. Não presuma caminhos ou scripts.
+
+4. Quando um script necessário não existir, crie-o de maneira coerente com a
+   estrutura atual.
+
+5. Não altere o gerenciador de pacotes sem necessidade.
+
+6. Não migre o projeto para outra ferramenta de build somente para facilitar o
+   deploy.
+
+────────────────────────────────────────────────────────────
+12.2 — SCRIPTS DE PRODUÇÃO
+────────────────────────────────────────────────────────────
+
+Crie ou normalize scripts de produção como:
+
+- `build`;
+- `build:web`;
+- `build:admin`;
+- `build:api`;
+- `start:prod`;
+- `db:migrate:prod`;
+- `db:seed:prod`;
+- `admin:create`;
+- `healthcheck`;
+- `deploy:verify`.
+
+O comando principal esperado para a API é equivalente a:
+
+node apps/api/dist/server.js
+
+Preferencialmente, disponibilize:
+
+npm run start:prod
+
+O script deve executar somente a API compilada.
+
+Ele não deve:
+
+- iniciar Vite;
+- usar hot reload;
+- usar ts-node em produção;
+- usar nodemon;
+- executar migrations automaticamente em todo reinício;
+- recriar o banco;
+- carregar dados de desenvolvimento.
+
+Analise cuidadosamente o comando:
+
+npm run db:setup
+
+Se ele apagar, recriar ou resetar tabelas, não o utilize como procedimento
+normal de produção.
+
+Nesse caso:
+
+- mantenha `db:setup` apenas para ambientes novos e explicitamente autorizados;
+- crie `db:migrate:prod` para migrations incrementais;
+- crie `db:seed:prod` com comportamento idempotente;
+- impeça sobrescrita de dados existentes;
+- documente a diferença entre setup inicial e atualização.
+
+O script `admin:create` deve:
+
+- criar o primeiro administrador de forma segura;
+- verificar se o e-mail já existe;
+- não aceitar senha padrão fixa;
+- não imprimir a senha em logs;
+- permitir entrada interativa ou variável temporária segura;
+- exigir troca de senha no primeiro acesso quando aplicável.
+
+────────────────────────────────────────────────────────────
+12.3 — ARQUIVOS DE AMBIENTE
+────────────────────────────────────────────────────────────
+
+Crie modelos separados:
+
+- `.env.production.example`;
+- `apps/api/.env.production.example`;
+- `apps/web/.env.production.example`;
+- `apps/admin/.env.production.example`;
+- `instances/example/.env.production.example`.
+
+Não duplique segredos entre arquivos sem necessidade.
+
+Variáveis privadas da API poderão incluir exemplos sem valor real:
+
+- NODE_ENV;
+- PORT;
+- INSTANCE_ID;
+- DATABASE_HOST;
+- DATABASE_PORT;
+- DATABASE_NAME;
+- DATABASE_USER;
+- DATABASE_PASSWORD;
+- SESSION_SECRET;
+- CSRF_SECRET;
+- MERCADO_PAGO_ACCESS_TOKEN;
+- MERCADO_PAGO_WEBHOOK_SECRET;
+- PUBLIC_DOMAIN;
+- ADMIN_DOMAIN;
+- API_DOMAIN;
+- UPLOADS_PATH;
+- ALLOWED_PUBLIC_ORIGINS;
+- ALLOWED_ADMIN_ORIGINS;
+- TRUSTED_HOSTS;
+- LOG_LEVEL.
+
+Variáveis públicas do Web/Admin poderão conter somente dados seguros:
+
+- URL ou caminho público da API;
+- nome do ambiente;
+- flags públicas;
+- identificadores públicos estritamente necessários.
+
+Nunca coloque em variáveis `VITE_*`:
+
+- Access Token do Mercado Pago;
+- segredo de webhook;
+- senha do banco;
+- segredo de sessão;
+- segredo CSRF;
+- credenciais da VPS;
+- credenciais administrativas;
+- tokens da Cloudflare.
+
+Não inclua nenhuma variável dos Correios, pois essa integração será removida.
+
+────────────────────────────────────────────────────────────
+12.4 — CONFIGURAÇÃO SEM DOMÍNIO REAL
+────────────────────────────────────────────────────────────
+
+O domínio será configurado posteriormente.
+
+Prepare o projeto com placeholders:
+
+PUBLIC_DOMAIN=lojadocliente.com.br
+ADMIN_DOMAIN=admin.lojadocliente.com.br
+API_DOMAIN=api.lojadocliente.com.br
+
+Não utilize esses valores como domínios ativos.
+
+Crie templates de configuração em que os valores possam ser substituídos sem
+alterar o código.
+
+Enquanto o domínio não estiver configurado:
+
+- permita validação local e interna da aplicação;
+- documente teste por localhost, rede privada ou túnel SSH;
+- não apresente acesso HTTP por IP como configuração final de produção;
+- não gere certificado SSL para um domínio inexistente;
+- não habilite CORS aberto temporariamente;
+- não utilize `*` em rotas autenticadas.
+
+Prepare a configuração HTTPS, mas mantenha a ativação dependente da futura
+configuração de DNS e certificado.
+
+────────────────────────────────────────────────────────────
+12.5 — NGINX
+────────────────────────────────────────────────────────────
+
+Crie templates de Nginx para:
+
+1. página pública;
+2. painel administrativo;
+3. proxy da API;
+4. webhooks;
+5. uploads, quando servidos localmente.
+
+Arquivos sugeridos:
+
+- `infra/nginx/public-site.conf.template`;
+- `infra/nginx/admin-site.conf.template`;
+- `infra/nginx/api.conf.template`;
+- `infra/nginx/security-headers.conf`;
+- `infra/nginx/rate-limits.conf`.
+
+Página pública:
+
+- servir `apps/web/dist`;
+- usar `try_files` para fallback do React Router;
+- aplicar cache longo somente a assets versionados;
+- não aplicar cache incorreto ao `index.html`;
+- encaminhar chamadas públicas da API;
+- impedir acesso a arquivos ocultos;
+- impedir acesso a `.env`, fontes do projeto, backups e arquivos internos.
+
+Painel administrativo:
+
+- servir `apps/admin/dist`;
+- usar fallback apropriado para React Router;
+- encaminhar `/api` para a API administrativa;
+- não expor source maps em produção quando não forem necessários;
+- permitir futura proteção integral por Cloudflare Access;
+- não considerar a URL do painel um mecanismo de segurança.
+
+API:
+
+- proxy para a porta interna da aplicação;
+- repassar os headers necessários;
+- configurar limites de body compatíveis com upload;
+- configurar timeouts controlados;
+- bloquear métodos HTTP não utilizados;
+- não expor diretamente a porta Node.js à internet.
+
+Preferencialmente, permita que:
+
+lojadocliente.com.br/api/public/*
+    → API pública
+
+admin.lojadocliente.com.br/api/*
+    → API administrativa
+
+api.lojadocliente.com.br/webhooks/*
+    → webhooks externos
+
+Essa configuração reduz a necessidade de CORS amplo e permite utilizar
+requisições same-origin no painel administrativo.
+
+Não permita que rotas administrativas sejam acessadas pelo host público.
+
+────────────────────────────────────────────────────────────
+12.6 — SYSTEMD COMO ESTRATÉGIA PRINCIPAL
+────────────────────────────────────────────────────────────
+
+Prepare systemd como estratégia principal para manter a API ativa.
+
+Crie:
+
+infra/systemd/catalog-api.service.template
+
+A unidade deve considerar:
+
+- usuário de sistema não root;
+- grupo restrito;
+- diretório de trabalho correto;
+- arquivo de ambiente externo ao repositório;
+- `NODE_ENV=production`;
+- `ExecStart` apontando para a API compilada;
+- reinício após falha;
+- tempo de espera entre reinícios;
+- inicialização depois da rede;
+- logs integrados ao journald;
+- encerramento gracioso;
+- limites adequados;
+- hardening do serviço.
+
+Quando compatível, avalie opções como:
+
+- NoNewPrivileges=true;
+- PrivateTmp=true;
+- ProtectSystem=strict;
+- ProtectHome=true;
+- RestrictSUIDSGID=true;
+- LockPersonality=true;
+- ReadWritePaths somente para uploads, cache e diretórios necessários.
+
+Não aplique uma diretiva que impeça a aplicação de funcionar sem testar e
+documentar.
+
+Documente:
+
+- instalação da unidade;
+- `systemctl daemon-reload`;
+- inicialização;
+- habilitação no boot;
+- reinicialização;
+- consulta de status;
+- consulta de logs;
+- rollback.
+
+O objetivo é garantir que a API volte automaticamente após uma reinicialização
+da VPS.
+
+────────────────────────────────────────────────────────────
+12.7 — PM2 E DOCKER
+────────────────────────────────────────────────────────────
+
+Não configure simultaneamente PM2, systemd e Docker para executar a mesma API.
+
+Use systemd como caminho principal do deploy nativo.
+
+Opcionalmente:
+
+- prepare documentação alternativa para PM2;
+- preserve ou crie Dockerfiles de produção;
+- prepare `docker-compose.production.yml` para isolamento futuro entre
+  instalações white-label.
+
+Identifique claramente:
+
+- estratégia principal;
+- estratégia alternativa;
+- arquivos pertencentes a cada estratégia;
+- comandos que não devem ser combinados.
+
+Para Docker:
+
+- utilize builds multi-stage quando apropriado;
+- execute a API como usuário não root;
+- não inclua `.env` na imagem;
+- não inclua uploads na imagem;
+- utilize volumes persistentes;
+- não exponha MySQL publicamente;
+- não monte o socket Docker;
+- não use containers privilegiados;
+- adicione health checks;
+- configure restart policy;
+- mantenha redes separadas.
+
+────────────────────────────────────────────────────────────
+12.8 — MYSQL DE PRODUÇÃO
+────────────────────────────────────────────────────────────
+
+Prepare documentação e scripts para:
+
+- criação do banco;
+- criação de usuário da aplicação;
+- concessão de privilégios mínimos;
+- execução de migrations;
+- seed inicial;
+- criação do administrador;
+- backup;
+- restauração;
+- verificação de conexão.
+
+O MySQL deve:
+
+- escutar somente em interface privada ou localhost;
+- não expor a porta 3306 publicamente;
+- utilizar usuário diferente do root;
+- possuir credenciais exclusivas por instalação;
+- manter encoding e collation consistentes;
+- utilizar transações nas operações críticas.
+
+Não coloque senhas diretamente em scripts SQL versionados.
+
+As migrations devem:
+
+- ser incrementais;
+- ser ordenadas;
+- registrar quais já foram executadas;
+- evitar operações destrutivas sem confirmação;
+- preservar pedidos e dados históricos;
+- falhar de maneira explícita;
+- não executar silenciosamente durante o boot da API.
+
+────────────────────────────────────────────────────────────
+12.9 — UPLOADS PERSISTENTES
+────────────────────────────────────────────────────────────
+
+Prepare um diretório persistente por instância, por exemplo:
+
+/var/lib/catalog-platform/<instance-id>/uploads
+
+ou equivalente compatível com a arquitetura encontrada.
+
+O diretório:
+
+- não deve ficar dentro de `dist`;
+- não deve ser apagado durante atualizações;
+- não deve ser versionado no Git;
+- deve possuir proprietário e permissões restritas;
+- deve participar do backup;
+- deve ser separado por instalação;
+- não deve permitir execução de arquivos.
+
+O deploy deve preservar:
+
+- imagens de produtos;
+- capas;
+- logos;
+- favicons;
+- mídias da Home;
+- arquivos necessários à marca.
+
+Se o projeto possuir abstração de armazenamento, preserve-a para permitir
+migração futura para OCI Object Storage.
+
+────────────────────────────────────────────────────────────
+12.10 — BUILD DE PRODUÇÃO
+────────────────────────────────────────────────────────────
+
+O fluxo esperado deverá ser validado e documentado:
+
+1. instalar dependências:
+
+   npm ci
+
+2. validar variáveis de ambiente:
+
+   npm run env:validate
+
+3. executar migrations:
+
+   npm run db:migrate:prod
+
+4. executar seed somente quando necessário:
+
+   npm run db:seed:prod
+
+5. gerar builds:
+
+   npm run build
+
+6. validar os artefatos:
+
+   - apps/web/dist;
+   - apps/admin/dist;
+   - apps/api/dist.
+
+7. iniciar a API compilada:
+
+   npm run start:prod
+
+8. servir os builds estáticos pelo Nginx.
+
+Não execute `npm run dev` em produção.
+
+Não use servidor de desenvolvimento do Vite como servidor público.
+
+Não utilize `vite preview` como processo permanente de produção.
+
+Valide se todas as dependências necessárias em runtime estarão disponíveis.
+
+Caso o monorepo exija dependências de desenvolvimento durante o build:
+
+- execute `npm ci`;
+- faça o build;
+- avalie `npm prune --omit=dev` somente depois;
+- não remova dependências necessárias à API compilada.
+
+────────────────────────────────────────────────────────────
+12.11 — HEALTH CHECKS E INICIALIZAÇÃO
+────────────────────────────────────────────────────────────
+
+Implemente ou consolide:
+
+GET /health/live
+GET /health/ready
+
+`live` deve indicar que o processo está ativo.
+
+`ready` deve verificar somente dependências essenciais, como:
+
+- conexão com banco;
+- carregamento das configurações obrigatórias;
+- acesso ao diretório de uploads.
+
+Não exponha:
+
+- senhas;
+- connection strings;
+- nomes internos desnecessários;
+- stack traces;
+- tokens;
+- detalhes sensíveis do ambiente.
+
+O Nginx, systemd e Docker poderão utilizar esses endpoints para verificar a
+saúde da aplicação.
+
+────────────────────────────────────────────────────────────
+12.12 — LOGS E AUDITORIA
+────────────────────────────────────────────────────────────
+
+Prepare logs de produção com:
+
+- timestamp;
+- nível;
+- request ID;
+- instance ID;
+- rota;
+- status HTTP;
+- duração;
+- eventos administrativos relevantes.
+
+Não registre:
+
+- senha;
+- cookie de sessão;
+- token CSRF;
+- Access Token;
+- segredo do webhook;
+- dados completos do cartão;
+- conteúdo sensível desnecessário;
+- body integral de autenticação.
+
+Para systemd, utilize preferencialmente journald.
+
+Se também houver logs em arquivo:
+
+- configure rotação;
+- limite retenção;
+- impeça crescimento ilimitado;
+- proteja permissões.
+
+────────────────────────────────────────────────────────────
+12.13 — FIREWALL E ORACLE VPS
+────────────────────────────────────────────────────────────
+
+Crie documentação específica para a VPS Oracle contendo checklist para:
+
+- usuário administrativo sem login direto como root;
+- autenticação SSH por chave;
+- desativação de autenticação SSH por senha quando aplicável;
+- atualização inicial do sistema;
+- instalação da versão correta do Node.js;
+- instalação do Nginx;
+- instalação ou configuração do MySQL;
+- criação do usuário de serviço;
+- criação dos diretórios da aplicação;
+- configuração do firewall do sistema operacional;
+- configuração da camada de rede da Oracle Cloud;
+- exposição apenas das portas estritamente necessárias;
+- manutenção da porta MySQL fechada externamente.
+
+Não aplique regras reais na conta Oracle.
+
+Apenas forneça:
+
+- comandos de exemplo;
+- placeholders;
+- checklist;
+- verificações;
+- procedimento de rollback.
+
+Não pressuponha que a VPS utiliza Ubuntu ou Oracle Linux.
+
+Detecte o sistema operacional na documentação e forneça caminhos separados
+quando os comandos forem diferentes.
+
+────────────────────────────────────────────────────────────
+12.14 — HTTPS E DOMÍNIOS FUTUROS
+────────────────────────────────────────────────────────────
+
+Prepare documentação para a etapa futura de domínios.
+
+Inclua:
+
+- DNS do domínio principal;
+- DNS do subdomínio administrativo;
+- DNS da API, quando utilizado;
+- ativação posterior do HTTPS;
+- configuração posterior da Cloudflare;
+- atualização de CORS;
+- atualização de trusted hosts;
+- atualização de cookies Secure;
+- atualização de URLs de retorno do Mercado Pago;
+- atualização da URL do webhook;
+- validação final do SSL.
+
+Não execute Certbot antes de o domínio apontar corretamente para a
+infraestrutura.
+
+Não desative validações TLS para contornar a ausência de domínio.
+
+Não use certificados autoassinados como configuração pública definitiva.
+
+────────────────────────────────────────────────────────────
+12.15 — CLOUDFLARE POSTERIOR
+────────────────────────────────────────────────────────────
+
+Prepare exemplos e documentação para configuração futura de:
+
+- Cloudflare DNS;
+- Cloudflare Tunnel;
+- Cloudflare Access para o painel;
+- WAF;
+- rate limiting;
+- proteção da origem.
+
+Não configure Cloudflare nesta tarefa.
+
+Não inclua:
+
+- Account ID real;
+- Zone ID real;
+- Tunnel ID real;
+- token real;
+- e-mails reais;
+- credenciais reais.
+
+O painel deve continuar protegido por autenticação interna mesmo quando
+Cloudflare Access for ativado.
+
+────────────────────────────────────────────────────────────
+12.16 — BACKUP E RESTAURAÇÃO
+────────────────────────────────────────────────────────────
+
+Crie scripts ou templates para backup independente de:
+
+- banco MySQL;
+- uploads;
+- configuração da instância;
+- arquivos operacionais necessários.
+
+Os backups devem possuir:
+
+- instance ID;
+- timestamp;
+- política de retenção documentada;
+- verificação de sucesso;
+- tratamento de falhas;
+- possibilidade de restauração.
+
+Crie:
+
+- `scripts/backup-instance`;
+- `scripts/restore-instance`;
+- `docs/BACKUP_AND_RESTORE.md`.
+
+Não considere um backup válido apenas porque um arquivo foi criado.
+
+Inclua procedimento para testar restauração em ambiente separado.
+
+────────────────────────────────────────────────────────────
+12.17 — ATUALIZAÇÃO E ROLLBACK
+────────────────────────────────────────────────────────────
+
+Documente um processo de atualização segura:
+
+1. criar backup;
+2. baixar ou copiar a nova versão;
+3. executar `npm ci`;
+4. executar build;
+5. validar ambiente;
+6. executar migrations;
+7. reiniciar a API;
+8. validar health checks;
+9. validar página pública;
+10. validar painel;
+11. monitorar logs.
+
+Prepare rollback para:
+
+- código;
+- configuração;
+- migrations compatíveis;
+- uploads;
+- banco.
+
+Não sobrescreva diretamente a única cópia funcional sem preservar a versão
+anterior.
+
+Quando possível, prepare uma estrutura de releases versionadas com um link
+simbólico `current`, sem obrigar a migração imediata caso isso conflite com a
+arquitetura atual.
+
+────────────────────────────────────────────────────────────
+12.18 — DOCUMENTAÇÃO OBRIGATÓRIA
+────────────────────────────────────────────────────────────
+
+Crie ou atualize:
+
+- `docs/PRODUCTION_DEPLOYMENT.md`;
+- `docs/ORACLE_VPS_SETUP.md`;
+- `docs/ENVIRONMENT_VARIABLES.md`;
+- `docs/NGINX.md`;
+- `docs/SYSTEMD.md`;
+- `docs/DATABASE_PRODUCTION.md`;
+- `docs/BACKUP_AND_RESTORE.md`;
+- `docs/UPDATE_AND_ROLLBACK.md`;
+- `docs/DOMAIN_AND_HTTPS_LATER.md`;
+- `docs/DEPLOYMENT_CHECKLIST.md`;
+- `docs/WHITE_LABEL_INSTANCE_DEPLOYMENT.md`.
+
+A documentação deve diferenciar claramente:
+
+- desenvolvimento;
+- teste;
+- produção;
+- primeira instalação;
+- atualização;
+- rollback;
+- criação de nova marca.
+
+────────────────────────────────────────────────────────────
+12.19 — TESTE LOCAL DA CONFIGURAÇÃO DE PRODUÇÃO
+────────────────────────────────────────────────────────────
+
+Sem realizar deploy externo, valide localmente:
+
+- instalação limpa com `npm ci`;
+- build completo;
+- existência dos diretórios `dist`;
+- execução da API compilada;
+- conexão com banco de teste;
+- migrations;
+- seed;
+- criação de administrador;
+- health checks;
+- acesso à página pública;
+- acesso ao painel;
+- persistência de uploads;
+- reinicialização do processo;
+- ausência de dependência do servidor de desenvolvimento.
+
+Quando Nginx ou systemd não puderem ser executados no ambiente atual:
+
+- valide sintaxe quando houver ferramenta disponível;
+- teste templates;
+- documente a limitação real;
+- não declare que o serviço foi iniciado.
+
+────────────────────────────────────────────────────────────
+CRITÉRIOS DE ACEITE DO DEPLOY
+────────────────────────────────────────────────────────────
+
+A preparação para produção somente será considerada concluída quando:
+
+1. `npm ci` funcionar em uma instalação limpa.
+2. `npm run build` gerar Web, Admin e API.
+3. A API puder iniciar pela saída compilada.
+4. Existir `npm run start:prod`.
+5. O projeto não depender de `npm run dev`.
+6. Existirem templates de Nginx.
+7. Existir uma unidade systemd funcional ou tecnicamente validada.
+8. A API estiver preparada para iniciar automaticamente após reinicialização.
+9. Web e Admin forem servidos como arquivos estáticos.
+10. O MySQL não precisar ser exposto publicamente.
+11. As migrations de produção não destruírem dados existentes.
+12. Os uploads permanecerem fora da pasta de build.
+13. Os uploads forem persistentes e separados por instância.
+14. Existirem health checks.
+15. Existirem scripts de backup e restauração.
+16. Existir procedimento de atualização e rollback.
+17. Nenhum segredo estiver versionado.
+18. Nenhum segredo estiver em variáveis VITE_*.
+19. Nenhuma dependência dos Correios permanecer ativa.
+20. O Mercado Pago estiver preparado para receber credenciais reais apenas no
+    ambiente da API.
+21. Os domínios puderem ser configurados posteriormente sem alteração
+    estrutural do código.
+22. A documentação da Oracle VPS estiver completa.
+23. A configuração da Bespoke atual continuar funcional.
+24. Uma nova instância white-label puder utilizar os mesmos arquivos de deploy
+    com configurações próprias.
+
+────────────────────────────────────────────────────────────
+ENTREGA ADICIONAL DE DEPLOY
+────────────────────────────────────────────────────────────
+
+Ao finalizar, apresente também:
+
+1. estratégia de deploy escolhida;
+2. estratégia alternativa preparada;
+3. árvore dos arquivos de infraestrutura;
+4. scripts de produção criados;
+5. variáveis obrigatórias;
+6. variáveis públicas;
+7. variáveis privadas;
+8. unidade systemd criada;
+9. templates Nginx criados;
+10. fluxo de banco;
+11. fluxo de uploads;
+12. fluxo de backup;
+13. fluxo de atualização;
+14. fluxo de rollback;
+15. comandos testados;
+16. resultados reais;
+17. limitações do ambiente de teste;
+18. etapas que dependerão do domínio;
+19. etapas que dependerão das credenciais reais;
+20. checklist final para a Oracle VPS.
+
+Não realize o deploy.
+Não conecte domínio.
+Não utilize credenciais reais.
+Não altere a infraestrutura externa.
+Não considere `npm run dev` uma implantação de produção.
+
+────────────────────────────────────────────────────────────
+FASE 13 — CRIAÇÃO DE UMA NOVA MARCA
+────────────────────────────────────────────────────────────
+
+Crie um script semelhante a:
+
+npm run instance:create -- --slug=nome-da-marca
+
+Esse script deve:
+
+- validar o slug;
+- rejeitar nomes duplicados;
+- criar somente arquivos de configuração da instância;
+- não duplicar todo o código;
+- criar `.env.example`;
+- gerar seed inicial da marca;
+- gerar checklist da instância;
+- preparar nomes exclusivos de banco, volumes e serviços;
+- nunca criar ou imprimir segredos reais;
+- nunca sobrescrever arquivos existentes sem confirmação.
+
+Estrutura sugerida:
+
+instances/
+  bespoke/
+    brand.seed.json
+    features.json
+    .env.example
+    compose.override.yml
+    README.md
+
+  cliente-exemplo/
+    brand.seed.json
+    features.json
+    .env.example
+    compose.override.yml
+    README.md
+
+O diretório da instância não deve conter cópia completa do código.
+
+────────────────────────────────────────────────────────────
+FASE 14 — TESTES
+────────────────────────────────────────────────────────────
+
+Crie ou atualize testes para:
+
+- remoção da API dos Correios;
+- ausência de chamadas de cotação;
+- checkout sem cálculo de CEP;
+- exibição correta de “frete a combinar”;
+- confirmação do cliente;
+- pagamento pelo Mercado Pago;
+- validação de webhook;
+- idempotência;
+- pedido pago aguardando contato;
+- botão do WhatsApp;
+- estados manuais de entrega;
+- configuração da marca;
+- aplicação de tema;
+- aplicação de layout;
+- aplicação de motion;
+- rotas administrativas;
+- autenticação;
+- autorização;
+- rate limiting;
+- CSRF;
+- consultas SQL parametrizadas;
+- isolamento entre duas instalações;
+- separação de banco;
+- separação de mídia;
+- separação de sessão;
+- regressão visual e funcional da Bespoke.
+
+Teste responsividade em:
+
+- 320px;
+- 375px;
+- 390px;
+- 768px;
+- 1024px;
+- 1280px;
+- 1440px.
+
+Execute realmente:
+
+- lint;
+- typecheck;
+- testes unitários;
+- testes de integração;
+- testes E2E relacionados;
+- build de produção.
+
+Não declare que um comando foi aprovado sem executá-lo.
+
+────────────────────────────────────────────────────────────
+CRITÉRIOS DE ACEITE
+────────────────────────────────────────────────────────────
+
+A tarefa somente poderá ser considerada concluída quando:
+
+1. A Bespoke atual continuar funcionando.
+2. O motion atual da Home for preservado.
+3. Não houver cálculo de frete pelos Correios.
+4. O CEP não for necessário para cotação automática.
+5. O pagamento continuar funcionando pelo Mercado Pago.
+6. O checkout informar que o frete será combinado pelo WhatsApp.
+7. O pedido pago assumir estado de aguardando contato ou frete.
+8. O número do WhatsApp vier da configuração da marca.
+9. Nome, logo, cores, fontes e textos não estiverem hardcoded.
+10. Uma nova marca puder ser iniciada sem copiar o projeto inteiro.
+11. Duas instalações não compartilharem banco, imagens, sessões ou usuários.
+12. O painel funcionar adequadamente em dispositivos móveis.
+13. O projeto estiver preparado para deploy manual em VPS.
+14. Nenhum segredo estiver presente no front-end ou no repositório.
+15. As consultas SQL modificadas estiverem parametrizadas.
+16. Os testes relevantes tiverem sido executados.
+
+────────────────────────────────────────────────────────────
+ENTREGA FINAL
+────────────────────────────────────────────────────────────
+
+Ao finalizar, apresente:
+
+1. arquitetura encontrada;
+2. plano executado;
+3. integração dos Correios removida;
+4. novo fluxo de frete;
+5. alterações no Mercado Pago;
+6. migrations criadas;
+7. endpoints criados ou alterados;
+8. componentes criados ou alterados;
+9. estrutura white-label criada;
+10. arquivos de deploy preparados;
+11. arquivos modificados;
+12. comandos executados;
+13. resultados reais de lint, testes e build;
+14. riscos pendentes;
+15. passos manuais para deploy;
+16. passos para criar a próxima marca.
+17. scripts de produção criados;
+18. estratégia de execução persistente da API;
+19. unidade systemd e comandos de ativação;
+20. templates de Nginx;
+21. arquivos de ambiente de exemplo;
+22. fluxo seguro de migrations;
+23. persistência de uploads;
+24. scripts de backup e restauração;
+25. procedimento de atualização e rollback;
+26. documentação para Oracle VPS;
+27. etapas pendentes de domínio, HTTPS e Cloudflare;
+28. dependências externas que exigirão credenciais reais.
+
+Não realize alterações fora do escopo.
+Não apague dados existentes.
+Não altere funcionalidades estáveis sem necessidade.
+Não faça deploy.
+Não utilize credenciais reais.
+Não afirme que uma proteção existe sem indicar sua implementação e seus testes.

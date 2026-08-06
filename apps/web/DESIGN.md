@@ -97,6 +97,7 @@ The web app is a customer-facing catalog, not an admin dashboard and not a gener
 The current direction should move away from an artisanal mood. The user should feel exclusivity even before the final logo lands in the project. White remains dominant, black creates authority, and champagne gold appears only as a signature: the real logo when it exists, active navigation, focus, selected state, and premium detail. Product imagery and spacing should do most of the emotional work.
 
 **Key Characteristics:**
+
 - Catalog-first, not admin-first: browsing and product inspection stay central.
 - Admin-inspired discipline: consistent buttons, panels, filters, empty states, and checkout controls.
 - Predominantly white viewport with black and champagne accents from the future logo palette.
@@ -112,16 +113,19 @@ The current direction should move away from an artisanal mood. The user should f
 The storefront should read as white, black, and champagne from the first viewport.
 
 ### Primary
+
 - **Signature Black**: primary actions, brand wordmark, headline color, cart decisions, checkout decisions, and high-contrast overlays when imagery requires legibility.
 - **Champagne Gold**: brand mark, active navigation underline, focus ring, premium detail, selected state, and restrained card hover border.
 - **Strong Champagne**: small catalog labels and section metadata that must stay visibly champagne on white.
 - **Deep Champagne**: compact footer band and rare brand-signature surfaces where black would feel too heavy.
 
 ### Secondary
+
 - **Soft Black**: secondary brand text, dark overlays on hero imagery, and cases where the full black would feel too blunt.
 - **Soft Champagne**: skeletons, subtle image surfaces, and quiet background layers behind products.
 
 ### Neutral
+
 - **Gallery White**: page background, header, footer, product-card body, form surfaces, and checkout surfaces.
 - **Elevated Ivory**: product image wells and elevated zones. It must not become the whole page mood.
 - **Pale Champagne Line**: borders, dividers, filter outlines, product cards, cart lines, and checkout summary boundaries.
@@ -143,8 +147,9 @@ The storefront should read as white, black, and champagne from the first viewpor
 **Character:** Display typography gives the catalog its premium editorial layer. Inter keeps the buying flow trustworthy and efficient. The split is intentional: the display stack for storefront atmosphere, Inter for decisions.
 
 ### Hierarchy
-- **Display** (700, `clamp(3.4rem, 8vw, 6rem)`, line-height 0.95): hero title and rare brand-led moments only.
-- **Headline** (700, `clamp(2.2rem, 6vw, 4rem)`, line-height 1): catalog title, product detail title, cart title, checkout title, and section headings.
+
+- **Display** (500, `clamp(2.8rem, 6vw, 4.8rem)`, line-height 1): hero title and rare brand-led moments only.
+- **Headline** (500, `clamp(2rem, 4.5vw, 3.4rem)`, line-height 1.05): catalog title, product detail title, cart title, checkout title, and section headings.
 - **Title** (800, around 1rem-1.25rem): product card names, filter titles, summary titles, and compact panels.
 - **Body** (400, 1.65-1.8 line-height): product subtitles, descriptions, support copy, shipping notes, and empty-state guidance.
 - **Label** (800-900, compact): navigation, badges, filters, buttons, form labels, prices, and operational hints.
@@ -160,7 +165,8 @@ The storefront should read as white, black, and champagne from the first viewpor
 The storefront uses borders and spacing before shadows. Product cards, filters, and checkout panels should feel precise and trustworthy at rest; shadow is reserved for small utility emphasis, product display lighting, and slight hover confirmation. Hover states can lift slightly, but the baseline should remain calm and expensive.
 
 ### Shadow Vocabulary
-- **Cart Link Glow** (`0 10px 28px rgba(29, 34, 31, 0.06)`): small utility elevation for cart access.
+
+- **Sticky Header Confirmation** (`0 6px 8px rgba(17, 16, 13, 0.05)`): appears only after scroll to separate navigation from content.
 - **Card Hover Confirmation** (`0 6px 12px rgba(17, 16, 13, 0.06)`): product-card hover only, paired with champagne border feedback.
 - **Product Detail Media** (`0 28px 70px rgba(17, 16, 13, 0.12)`): larger product media where the image needs staged depth.
 - **Product Image Shadow** (`0 8px 12px rgba(17, 16, 13, 0.06)`): restrained product image depth inside the image well.
@@ -174,16 +180,19 @@ The storefront uses borders and spacing before shadows. Product cards, filters, 
 The storefront components should feel like a luxury catalog powered by a disciplined product system.
 
 ### Buttons
+
 - **Shape:** use the design-system 8px button radius for primary and secondary actions. Avoid pill buttons as the default storefront style; they feel less aligned with the admin discipline.
 - **Primary:** Signature Black on white for "Add to cart", checkout, retry, and main recovery actions.
 - **Hover / Focus:** 1px lift on hover; champagne focus outline for accessibility.
 - **Secondary / Ghost:** secondary actions keep a white surface and pale border; ghost actions are for low-emphasis navigation such as "View all".
 
 ### Chips
+
 - **Style:** category and stock badges remain compact pills, but should not become decorative tags.
 - **State:** low-stock warnings use semantic warning color; normal category labels stay neutral.
 
 ### Cards / Containers
+
 - **Product Cards:** white bodies, pale champagne borders, 8px corners, quieter hover lift, editorial product names, a small curation marker, and price/action hierarchy. Cards should feel curated and inspectable, not handmade.
 - **Responsive Card Actions:** product-card price and add action must never collide with the border. On narrow cards, stack the action below the price and let the button span the available width.
 - **Image Wells:** Elevated Ivory is acceptable behind product images, but the product image must stay the visual focus.
@@ -192,13 +201,14 @@ The storefront components should feel like a luxury catalog powered by a discipl
 - **Checkout Summary:** structured, sticky on desktop, white, bordered, item-aware, and clear. It should feel like a concierge decision panel.
 
 ### Inputs / Fields
+
 - **Style:** use shared design-system fields. Labels are strong, inputs are white, borders are pale, and focus is champagne.
 - **Search / Filters:** filters must feel useful, not like a heavy sidebar. Active chips and clear-all actions should make the current search state obvious without forcing the panel open.
 - **Error / Disabled:** errors sit next to the failed field or action and preserve the user's work.
 
 ### Navigation
 
-The header is a white luxury retail header with admin-level precision: sticky, 72px desktop height, subtle bottom border, wordmark at left, main nav centered, cart visible at right. Do not render a fake logo mark. Champagne appears only when a real logo exists, or in the active nav underline. Mobile keeps the cart visible and opens navigation without hiding the catalog context.
+The header is a white luxury retail header with admin-level precision: sticky, 72px desktop height, subtle bottom border, wordmark isolated at left, and the main nav grouped at right beside the visible cart. Do not render a fake logo mark. Champagne appears only when a real logo exists, or in the active nav underline. Mobile keeps the cart visible and opens an accessible navigation region with focus management and Escape support.
 
 ### Footer
 
@@ -208,13 +218,32 @@ The footer should close the page as a compact dark-champagne brand band, not a l
 
 Product detail pages should feel more premium than product cards: larger image well, stronger white space, clear category badge, editorial title, description, price, and one dominant cart action. Avoid turning detail pages into marketing landing pages.
 
+### Reusable Home Sections
+
+Home structure lives in generic, prop-driven sections instead of reading Bespoke content directly. `HeroSection` owns static responsive media, overlay and alignment; `EditorialStatement` renders two semantic lines supplied by the shared storefront contract and applies their scroll choreography; `EditorialNavigation` accepts labels and destinations; `FeaturedCollectionHeading` coordinates collection hierarchy. API mutations notify the page container to invalidate React Query data, so a future white-label theme can replace content without rebuilding these sections.
+
 ### Cart / Checkout
 
 Cart and checkout should inherit admin reliability: compact line items, clear totals, obvious primary action, WhatsApp as a secondary path, and strong recovery states. Checkout should sequence contact, delivery, and payment, then reinforce trust with a reserved order review and concise reassurance copy. Keep surfaces white and restrained so the purchase flow feels trustworthy.
 
+## Motion
+
+Motion for React is the only JavaScript animation system. Import it from `motion/react`; do not add `framer-motion` imports or a competing animation library.
+
+- The hero is the signature moment. Standard uploaded covers remain static; campaign art explicitly marked with `motion=product-drop` may use one first-load product landing with restrained spring physics, independent shadows, and no scroll-linked displacement. Its background, product layers, and shadow layers remain mounted as one persistent composition, so reaching rest never swaps or crossfades to a second image.
+- Page transitions, list reveals, cards, drawers, and exits use the shared presets exported by the design system.
+- Product-grid entrance stagger is reserved for the four Home highlights. Catalog lists use layout animation without replaying a large entrance sequence.
+- Header, buttons, links, cart count, filters, and quantity controls use brief feedback between 120ms and 280ms.
+- `MotionConfig reducedMotion="user"` is mandatory. Scroll-linked movement is disabled and CSS transitions collapse to an instant state when the user requests reduced motion.
+- Do not animate financial values, layout-driving dimensions, or every section on scroll.
+- Shared TypeScript and CSS tokens use the same duration tiers: 120ms instant feedback, 180ms fast feedback, 280ms state changes, 420ms deliberate transitions, 520ms reveals, and 620ms signature entrances.
+- Vertical reveals use a shared 24px distance. The 32px editorial distance and masked line choreography stay local to `EditorialStatement`, where that behavior has a specific semantic purpose.
+- Hero scroll displacement runs only on desktop with no reduced-motion preference; mobile, landscape-constrained layouts, and reduced-motion users receive a static composition.
+
 ## 6. Do's and Don'ts
 
 ### Do:
+
 - **Do** keep the page clearly a catalog: product grid, product detail, cart, checkout, and support flows remain primary.
 - **Do** pull visual discipline from admin: structured panels, consistent controls, crisp borders, and predictable states.
 - **Do** use white as the dominant luxury signal.
@@ -228,6 +257,7 @@ Cart and checkout should inherit admin reliability: compact line items, clear to
 - **Do** tune the final logo colors into the shared design-system tokens rather than scattering one-off values in `storefront.css`.
 
 ### Don't:
+
 - **Don't** turn the storefront into an admin dashboard. Borrow discipline, not operational density.
 - **Don't** let the catalog feel artisanal, rustic, handmade, or like a craft marketplace.
 - **Don't** use champagne as a large filled section, texture, or decorative gradient.

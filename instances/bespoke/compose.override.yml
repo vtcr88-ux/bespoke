@@ -1,0 +1,8 @@
+services:
+  mysql:
+    container_name: catalog-bespoke-mysql
+    volumes:
+      - catalog_bespoke_mysql:/var/lib/mysql
+
+volumes:
+  catalog_bespoke_mysql:

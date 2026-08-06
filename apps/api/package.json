@@ -4,11 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "tsx watch --conditions=development src/server.ts",
+    "auth:hash-password": "tsx scripts/hash-admin-password.ts",
+    "auth:verify-password": "tsx scripts/verify-admin-password.ts",
     "db:setup": "tsx ../../scripts/db-setup.ts",
+    "env:validate": "tsx scripts/validate-env.ts",
+    "start": "node dist/server.js",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint src tests --ext .ts",
+    "lint": "eslint src tests scripts --ext .ts",
     "test": "vitest run"
   },
   "dependencies": {
@@ -25,6 +29,7 @@
     "mysql2": "^3.11.0",
     "pino": "^9.3.2",
     "pino-http": "^10.2.0",
+    "sharp": "0.35.3",
     "vite": "8.1.5",
     "zod": "^3.23.8"
   },

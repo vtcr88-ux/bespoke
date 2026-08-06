@@ -1,12 +1,17 @@
 INSERT INTO categories (id, slug, name, description) VALUES
-('11111111-1111-4111-8111-111111111111', 'rituais', 'Rituais', 'Selecoes pensadas para rotinas de cuidado pessoal.'),
-('22222222-2222-4222-8222-222222222222', 'acessorios', 'Acessorios', 'Itens duraveis para organizar momentos de bem-estar.'),
-('33333333-3333-4333-8333-333333333333', 'consultoria', 'Consultoria', 'Experiencias assistidas para escolhas mais conscientes.')
-ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description);
+('11111111-1111-4111-8111-111111111111', 'chas-soluveis', 'Chás Solúveis', NULL),
+('22222222-2222-4222-8222-222222222222', 'encapsulados', 'Encapsulados', NULL),
+('33333333-3333-4333-8333-333333333333', 'injetaveis', 'Injetáveis', NULL),
+('44444444-4444-4444-8444-444444444444', 'suplementacoes', 'Suplementações', NULL)
+ON DUPLICATE KEY UPDATE
+  slug = VALUES(slug),
+  name = VALUES(name),
+  description = VALUES(description),
+  is_active = TRUE;
 
 INSERT INTO products (
   id, category_id, slug, sku, name, subtitle, description, price_in_cents,
-  compare_at_price_in_cents, stock, low_stock_threshold
+  compare_at_price_in_cents, stock, low_stock_threshold, low_stock_warning_enabled
 ) VALUES
 (
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
@@ -19,7 +24,8 @@ INSERT INTO products (
   28900,
   NULL,
   18,
-  5
+  5,
+  FALSE
 ),
 (
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2',
@@ -32,7 +38,8 @@ INSERT INTO products (
   14900,
   16900,
   7,
-  8
+  8,
+  TRUE
 ),
 (
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3',
@@ -45,7 +52,8 @@ INSERT INTO products (
   9900,
   NULL,
   31,
-  6
+  6,
+  FALSE
 ),
 (
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4',
@@ -58,7 +66,8 @@ INSERT INTO products (
   19900,
   NULL,
   12,
-  3
+  3,
+  FALSE
 )
 ON DUPLICATE KEY UPDATE
   name = VALUES(name),
@@ -67,7 +76,8 @@ ON DUPLICATE KEY UPDATE
   price_in_cents = VALUES(price_in_cents),
   compare_at_price_in_cents = VALUES(compare_at_price_in_cents),
   stock = VALUES(stock),
-  low_stock_threshold = VALUES(low_stock_threshold);
+  low_stock_threshold = VALUES(low_stock_threshold),
+  low_stock_warning_enabled = VALUES(low_stock_warning_enabled);
 
 INSERT INTO media_assets (id, storage_key, public_url, alt_text, width, height, content_type, size_bytes) VALUES
 (

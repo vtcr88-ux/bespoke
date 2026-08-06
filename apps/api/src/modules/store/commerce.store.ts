@@ -2,34 +2,55 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import type {
+  AdminCategoryInput,
+  AdminOrderUpdate,
   AdminProductInput,
   AdminProductRow,
   Category,
   OrderSummary,
+  PaymentStatus,
   PricedCart,
   Product,
-  StorefrontSettings
+  StorefrontSettings,
 } from "@bespoke/contracts";
-import { storefrontSettingsSchema } from "@bespoke/contracts";
-import { categories as demoCategories, products as demoProducts } from "../../data/demo-catalog.js";
+import {
+  defaultFooterLinks,
+  defaultHomeMotionByBlock,
+  defaultHomeSections,
+  defaultManifestoItems,
+  defaultStorefrontTextStyles,
+  storefrontSettingsSchema,
+} from "@bespoke/contracts";
+import {
+  categories as demoCategories,
+  products as demoProducts,
+} from "../../data/demo-catalog.js";
 import { ApiError, assertFound } from "../../shared/api-error.js";
 
 export type StoredOrder = OrderSummary & {
   mercadoPagoPreferenceId?: string | null;
   checkoutUrl?: string | null;
+  providerPaymentId?: string | null;
 };
 
 type CommerceState = {
   categories: Category[];
   products: Product[];
   orders: StoredOrder[];
+  checkoutAccess: Record<string, string>;
+  webhookEvents: string[];
   storefront: StorefrontSettings;
 };
+
+export type PaymentUpdateResult = "processed" | "duplicate" | "ignored";
 
 type MaybePromise<T> = T | Promise<T>;
 
 export interface CommerceStoreAdapter {
+  healthCheck(): MaybePromise<void>;
+  close(): MaybePromise<void>;
   categories(): MaybePromise<Category[]>;
+  createCategory(input: AdminCategoryInput): MaybePromise<Category>;
   products(options?: { includeInactive?: boolean }): MaybePromise<Product[]>;
   findProductById(id: string): MaybePromise<Product | null>;
   findProductBySlug(slug: string): MaybePromise<Product | null>;
@@ -39,39 +60,136 @@ export interface CommerceStoreAdapter {
   deleteProduct(id: string): MaybePromise<void>;
   createOnlineOrder(input: {
     orderReference: string;
+    checkoutAccessTokenHash: string;
     customer: { name: string; email: string; phone: string };
     priced: PricedCart;
   }): MaybePromise<StoredOrder>;
-  attachMercadoPagoPreference(orderReference: string, preferenceId: string | null, checkoutUrl: string): MaybePromise<void>;
-  createWhatsappRequest(input: { requestReference: string; priced: PricedCart }): MaybePromise<StoredOrder>;
+  attachMercadoPagoPreference(
+    orderReference: string,
+    preferenceId: string | null,
+    checkoutUrl: string,
+  ): MaybePromise<void>;
+  createWhatsappRequest(input: {
+    requestReference: string;
+    priced: PricedCart;
+  }): MaybePromise<StoredOrder>;
+  findCheckoutOrder(
+    orderReference: string,
+    checkoutAccessTokenHash: string,
+  ): MaybePromise<StoredOrder | null>;
+  processMercadoPagoPayment(input: {
+    eventId: string;
+    eventType: string;
+    providerPaymentId: string;
+    orderReference: string;
+    status: PaymentStatus;
+    amountInCents: number;
+  }): MaybePromise<PaymentUpdateResult>;
+  recordWhatsappOpen(
+    orderReference: string,
+    checkoutAccessTokenHash: string,
+  ): MaybePromise<boolean>;
+  updateOrder(
+    orderReference: string,
+    input: AdminOrderUpdate,
+  ): MaybePromise<StoredOrder>;
   orders(): MaybePromise<StoredOrder[]>;
   storefront(): MaybePromise<StorefrontSettings>;
   updateStorefront(input: StorefrontSettings): MaybePromise<StorefrontSettings>;
 }
 
 export const defaultStorefront: StorefrontSettings = {
+  settingsVersion: 2,
   brandName: "Bespoke",
+  legalName: "Bespoke",
   logoUrl: "",
-  heroImageUrl: "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1800&q=82",
+  logoOnDarkUrl: "",
+  faviconUrl: "",
+  socialImageUrl: "",
+  contactEmail: "",
+  defaultMetaTitle: "Bespoke | Catalogo",
+  defaultMetaDescription:
+    "Descubra a curadoria de produtos e compre online ou pelo WhatsApp.",
+  heroImageUrl:
+    "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1800&q=82",
   heroEyebrow: "Loja Bespoke",
+  heroEyebrowFontSize: 12,
   heroTitle: "Bespoke",
-  heroSubtitle: "Uma experiencia exclusiva, sofisticada e cuidadosamente selecionada para quem valoriza presenca, beleza e atendimento impecavel.",
-  heroPrimaryCtaLabel: "Explorar catalogo",
-  heroSecondaryCtaLabel: "Atendimento exclusivo",
+  heroTitleFontSize: 56,
+  manifestoLineOne: "UMA EXPERI\u00caNCIA EXCLUSIVA, SOFISTICADA",
+  manifestoLineTwo:
+    "CUIDADOSAMENTE SELECIONADA PARA QUEM VALORIZA PRESEN\u00c7A",
+  manifestoItems: defaultManifestoItems.map((item) => ({ ...item })),
+  manifestoMaxWidth: 880,
+  manifestoDivider: "line",
+  editorialCatalogLabel: "Explorar catalogo",
+  editorialSupportLabel: "Atendimento exclusivo",
+  editorialOrdersLabel: "Acompanhar pedidos",
+  editorialAccountLabel: "Minha conta",
+  editorialNavigationMobileEnabled: false,
   heroHeight: "balanced",
   featuredEyebrow: "Selecao inicial",
   featuredTitle: "Produtos em destaque",
   featuredLinkLabel: "Ver todos",
+  featuredAddButtonLabel: "Adicionar",
+  featuredAddedButtonLabel: "Adicionado",
   homeLayout: "editorial",
   productCardStyle: "boutique",
   imageFit: "contain",
-  footerSlogan: "Curadoria reservada, cuidado impecavel e escolhas feitas para poucos.",
+  homeSections: defaultHomeSections.map((section) => ({ ...section })),
+  homeSectionSpacing: "balanced",
+  homeTransitionPreset: "editorial",
+  homeTransitionOverlap: 64,
+  homeTransitionOpacity: 82,
+  homeDepthIntensity: "balanced",
+  homeMotionEnabled: true,
+  homeMotionPreset: "editorial",
+  homeMotionByBlock: { ...defaultHomeMotionByBlock },
+  homeMotionIntensity: "balanced",
+  homeTextStyles: {
+    heroEyebrow: { ...defaultStorefrontTextStyles.heroEyebrow },
+    heroTitle: { ...defaultStorefrontTextStyles.heroTitle },
+    manifesto: { ...defaultStorefrontTextStyles.manifesto },
+    navigation: { ...defaultStorefrontTextStyles.navigation },
+    featuredEyebrow: { ...defaultStorefrontTextStyles.featuredEyebrow },
+    featuredTitle: { ...defaultStorefrontTextStyles.featuredTitle },
+    productCardTitle: { ...defaultStorefrontTextStyles.productCardTitle },
+    footerSlogan: { ...defaultStorefrontTextStyles.footerSlogan },
+  },
+  storefrontFont: "signature",
+  adminFont: "signature",
+  footerSlogan:
+    "Curadoria reservada, cuidado impecavel e escolhas feitas para poucos.",
+  footerShowBrandName: true,
+  footerHeading: "Loja",
+  footerServiceHeading: "Atendimento",
+  footerServiceLineOne: "Seg-Sex · 9h as 19h",
+  footerServiceLineTwo: "Sabado · 9h as 14h",
+  footerWhatsappButtonLabel: "Atendimento WhatsApp",
+  footerWhatsappLinkLabel: "Falar agora",
+  footerCopyrightText:
+    "\u00a9 {{year}} {{brand}} · Todos os direitos reservados.",
+  footerSecurityText: "Pagamento seguro",
+  footerLinks: defaultFooterLinks,
   footerPrivacyLabel: "Privacidade",
   footerCatalogLabel: "Catalogo",
   footerSupportLabel: "Suporte",
+  whatsappNumber: "",
+  whatsappPurchaseMessage:
+    "Gostaria de confirmar disponibilidade e combinar os proximos passos diretamente com a loja.",
+  postPaymentWhatsappMessage:
+    "Meu pagamento foi confirmado. Gostaria de combinar o frete ou a retirada com a equipe.",
   primaryColor: "#090907",
   accentColor: "#c9a76d",
-  backgroundColor: "#ffffff"
+  footerColor: "#c9a76d",
+  backgroundColor: "#ffffff",
+  homeSurfaceColor: "#faf8f4",
+  homeAlternateColor: "#f3efe8",
+  homeSecondaryTextColor: "#5c584f",
+  homeBorderColor: "#d8d1c5",
+  homeShadowColor: "#090907",
+  homeTransitionStartColor: "#c9a76d",
+  homeTransitionEndColor: "#faf8f4",
 };
 
 function clone<T>(value: T): T {
@@ -83,18 +201,142 @@ function initialState(): CommerceState {
     categories: clone(demoCategories),
     products: clone(demoProducts),
     orders: [],
-    storefront: defaultStorefront
+    checkoutAccess: {},
+    webhookEvents: [],
+    storefront: defaultStorefront,
   };
 }
 
 function normalizeState(value: Partial<CommerceState> | null): CommerceState {
   const state = initialState();
   return {
-    categories: value?.categories?.length ? value.categories : state.categories,
-    products: value?.products?.length ? value.products : state.products,
-    orders: value?.orders ?? state.orders,
-    storefront: storefrontSettingsSchema.parse({ ...state.storefront, ...value?.storefront })
+    categories: value?.categories ?? state.categories,
+    products: (value?.products ?? state.products).map((product, index) => ({
+      ...product,
+      isFeatured: product.isFeatured ?? true,
+      sortOrder: product.sortOrder ?? (index + 1) * 10,
+    })),
+    orders: (value?.orders ?? state.orders).map(normalizeStoredOrder),
+    checkoutAccess: value?.checkoutAccess ?? state.checkoutAccess,
+    webhookEvents: value?.webhookEvents ?? state.webhookEvents,
+    storefront: normalizeStorefrontSettings(value?.storefront),
   };
+}
+
+function normalizeStoredOrder(value: StoredOrder): StoredOrder {
+  const legacy = value as StoredOrder & { shippingInCents?: number };
+  const isOnline = value.salesChannel === "online";
+  return {
+    ...value,
+    paymentStatus: value.paymentStatus ?? (isOnline ? "pending" : null),
+    shippingMode:
+      value.shippingMode ?? (isOnline ? "legacy_calculated" : "manual"),
+    shippingStatus:
+      value.shippingStatus ??
+      (value.status === "delivered"
+        ? "delivered"
+        : value.status === "shipped"
+          ? "dispatched"
+          : isOnline
+            ? "awaiting_payment"
+            : "awaiting_contact"),
+    contactStatus:
+      value.contactStatus ?? (isOnline ? "not_started" : "whatsapp_opened"),
+    shippingAmountInCents:
+      value.shippingAmountInCents ?? legacy.shippingInCents ?? null,
+    shippingNotes: value.shippingNotes ?? null,
+    deliveryMethod: value.deliveryMethod ?? "undecided",
+    deliveryAddress: value.deliveryAddress ?? null,
+    pickupInstructions: value.pickupInstructions ?? null,
+    shippingContactedAt: value.shippingContactedAt ?? null,
+    shippingArrangedAt: value.shippingArrangedAt ?? null,
+  };
+}
+
+type LegacyStorefrontSettings = Partial<StorefrontSettings> & {
+  heroSubtitle?: string;
+  heroPrimaryCtaLabel?: string;
+  heroSecondaryCtaLabel?: string;
+};
+
+export function normalizeStorefrontSettings(
+  value?: LegacyStorefrontSettings | null,
+): StorefrontSettings {
+  const footerLinks = value?.footerLinks ?? [
+    {
+      ...defaultFooterLinks[0]!,
+      label: value?.footerPrivacyLabel ?? defaultStorefront.footerPrivacyLabel,
+    },
+    {
+      ...defaultFooterLinks[1]!,
+      label: value?.footerCatalogLabel ?? defaultStorefront.footerCatalogLabel,
+    },
+    {
+      ...defaultFooterLinks[2]!,
+      label: value?.footerSupportLabel ?? defaultStorefront.footerSupportLabel,
+    },
+  ];
+  const currentSettings = { ...(value ?? {}) };
+  delete currentSettings.heroSubtitle;
+  delete currentSettings.heroPrimaryCtaLabel;
+  delete currentSettings.heroSecondaryCtaLabel;
+
+  const manifestoItems = value?.manifestoItems
+    ? value.manifestoItems
+    : defaultManifestoItems.map((item, index) => ({
+        ...item,
+        content:
+          index === 0
+            ? (value?.manifestoLineOne ?? defaultStorefront.manifestoLineOne)
+            : (value?.manifestoLineTwo ?? defaultStorefront.manifestoLineTwo),
+      }));
+  const legacyMotionPreset =
+    value?.homeMotionPreset ?? defaultStorefront.homeMotionPreset;
+  const homeMotionByBlock = value?.homeMotionByBlock ?? {
+    manifesto: legacyMotionPreset,
+    navigation: legacyMotionPreset,
+    featuredHeading: legacyMotionPreset,
+    productCards: legacyMotionPreset,
+    footer: legacyMotionPreset,
+  };
+  const homeTextStyles = value?.homeTextStyles ?? {
+    ...defaultStorefront.homeTextStyles,
+    heroEyebrow: {
+      ...defaultStorefront.homeTextStyles.heroEyebrow,
+      fontSize:
+        value?.heroEyebrowFontSize ??
+        defaultStorefront.homeTextStyles.heroEyebrow.fontSize,
+    },
+    heroTitle: {
+      ...defaultStorefront.homeTextStyles.heroTitle,
+      fontSize:
+        value?.heroTitleFontSize ??
+        defaultStorefront.homeTextStyles.heroTitle.fontSize,
+    },
+  };
+
+  return storefrontSettingsSchema.parse({
+    ...defaultStorefront,
+    ...currentSettings,
+    editorialCatalogLabel:
+      value?.editorialCatalogLabel ??
+      value?.heroPrimaryCtaLabel ??
+      defaultStorefront.editorialCatalogLabel,
+    editorialSupportLabel:
+      value?.editorialSupportLabel ??
+      value?.heroSecondaryCtaLabel ??
+      defaultStorefront.editorialSupportLabel,
+    manifestoItems,
+    homeMotionByBlock,
+    homeTextStyles,
+    footerColor:
+      value?.footerColor ?? value?.accentColor ?? defaultStorefront.footerColor,
+    footerHeading:
+      value?.footerHeading && value.footerHeading !== "Links e atendimento"
+        ? value.footerHeading
+        : defaultStorefront.footerHeading,
+    footerLinks,
+  });
 }
 
 export function slugify(value: string) {
@@ -107,11 +349,53 @@ export function slugify(value: string) {
     .slice(0, 100);
 }
 
-export function uniqueSlug(base: string, products: Product[], currentId?: string) {
+export function uniqueSlug(
+  base: string,
+  products: Product[],
+  currentId?: string,
+) {
   const root = slugify(base) || "produto";
   let candidate = root;
   let index = 2;
-  while (products.some((product) => product.slug === candidate && product.id !== currentId)) {
+  while (
+    products.some(
+      (product) => product.slug === candidate && product.id !== currentId,
+    )
+  ) {
+    candidate = `${root}-${index}`;
+    index += 1;
+  }
+  return candidate;
+}
+
+export function uniqueSku(
+  base: string,
+  products: Product[],
+  currentId?: string,
+) {
+  const productCode = slugify(base)
+    .replace(/-/g, "")
+    .slice(0, 12)
+    .toUpperCase();
+  const root = `PRD-${productCode || "ITEM"}`;
+  let candidate = root;
+  let index = 2;
+  while (
+    products.some(
+      (product) => product.sku === candidate && product.id !== currentId,
+    )
+  ) {
+    candidate = `${root}-${index}`;
+    index += 1;
+  }
+  return candidate;
+}
+
+export function uniqueCategorySlug(base: string, categories: Category[]) {
+  const root = slugify(base) || "categoria";
+  let candidate = root;
+  let index = 2;
+  while (categories.some((category) => category.slug === candidate)) {
     candidate = `${root}-${index}`;
     index += 1;
   }
@@ -126,12 +410,15 @@ export function orderItemsFromCart(priced: PricedCart): OrderSummary["items"] {
     quantity: line.quantity,
     unitPriceInCents: line.unitPriceInCents,
     subtotalInCents: line.subtotalInCents,
-    imageUrl: line.imageUrl
+    imageUrl: line.imageUrl,
   }));
 }
 
 export class CommerceStore implements CommerceStoreAdapter {
-  private constructor(private state: CommerceState, private readonly persist?: (state: CommerceState) => void) {}
+  private constructor(
+    private state: CommerceState,
+    private readonly persist?: (state: CommerceState) => void,
+  ) {}
 
   static memory() {
     return new CommerceStore(initialState());
@@ -140,7 +427,11 @@ export class CommerceStore implements CommerceStoreAdapter {
   static fromFile(filePath: string) {
     const absolutePath = resolve(filePath);
     const state = existsSync(absolutePath)
-      ? normalizeState(JSON.parse(readFileSync(absolutePath, "utf8")) as Partial<CommerceState>)
+      ? normalizeState(
+          JSON.parse(
+            readFileSync(absolutePath, "utf8"),
+          ) as Partial<CommerceState>,
+        )
       : initialState();
 
     return new CommerceStore(state, (nextState) => {
@@ -153,16 +444,50 @@ export class CommerceStore implements CommerceStoreAdapter {
     return this.state.categories;
   }
 
+  healthCheck() {}
+
+  close() {}
+
+  createCategory(input: AdminCategoryInput) {
+    const normalizedName = slugify(input.name);
+    const existing = this.state.categories.find(
+      (category) => slugify(category.name) === normalizedName,
+    );
+    if (existing) return existing;
+
+    const category: Category = {
+      id: randomUUID(),
+      slug: uniqueCategorySlug(input.name, this.state.categories),
+      name: input.name,
+      description: null,
+    };
+    this.state.categories = [...this.state.categories, category].sort(
+      (first, second) => first.name.localeCompare(second.name, "pt-BR"),
+    );
+    this.save();
+    return category;
+  }
+
   products({ includeInactive = false }: { includeInactive?: boolean } = {}) {
-    return includeInactive ? this.state.products : this.state.products.filter((product) => product.isActive);
+    return includeInactive
+      ? this.state.products
+      : this.state.products.filter((product) => product.isActive);
   }
 
   findProductById(id: string) {
-    return this.state.products.find((product) => product.id === id && product.isActive) ?? null;
+    return (
+      this.state.products.find(
+        (product) => product.id === id && product.isActive,
+      ) ?? null
+    );
   }
 
   findProductBySlug(slug: string) {
-    return this.state.products.find((product) => product.slug === slug && product.isActive) ?? null;
+    return (
+      this.state.products.find(
+        (product) => product.slug === slug && product.isActive,
+      ) ?? null
+    );
   }
 
   adminProducts(): AdminProductRow[] {
@@ -179,22 +504,30 @@ export class CommerceStore implements CommerceStoreAdapter {
       compareAtPriceInCents: product.compareAtPriceInCents,
       stock: product.stock,
       lowStockThreshold: product.lowStockThreshold,
+      lowStockWarningEnabled: product.lowStockWarningEnabled,
       status: product.isActive ? "active" : "inactive",
       lowStock: product.stock <= product.lowStockThreshold,
       imageUrl: product.images[0]?.url ?? "",
-      imageAlt: product.images[0]?.alt ?? product.name
+      imageAlt: product.images[0]?.alt ?? product.name,
+      imageWidth: product.images[0]?.width,
+      imageHeight: product.images[0]?.height,
+      imageContentType: product.images[0]?.contentType,
+      imageSizeBytes: product.images[0]?.sizeBytes,
+      isFeatured: product.isFeatured,
+      sortOrder: product.sortOrder,
     }));
   }
 
   createProduct(input: AdminProductInput) {
     const category = this.findCategory(input.categorySlug);
     const slug = input.slug ?? uniqueSlug(input.name, this.state.products);
-    this.assertUniqueProductIdentity({ sku: input.sku, slug });
+    const sku = input.sku ?? uniqueSku(input.name, this.state.products);
+    this.assertUniqueProductIdentity({ sku, slug });
 
     const product: Product = {
       id: randomUUID(),
       slug,
-      sku: input.sku,
+      sku,
       name: input.name,
       subtitle: input.subtitle ?? null,
       description: input.description,
@@ -203,17 +536,22 @@ export class CommerceStore implements CommerceStoreAdapter {
       compareAtPriceInCents: input.compareAtPriceInCents ?? null,
       stock: input.stock,
       lowStockThreshold: input.lowStockThreshold,
+      lowStockWarningEnabled: input.lowStockWarningEnabled,
       images: [
         {
           id: randomUUID(),
           url: input.imageUrl,
           alt: input.imageAlt,
-          width: 1200,
-          height: 1500
-        }
+          width: input.imageWidth ?? 1200,
+          height: input.imageHeight ?? 1200,
+          contentType: input.imageContentType,
+          sizeBytes: input.imageSizeBytes,
+        },
       ],
       tags: [],
-      isActive: input.isActive
+      isActive: input.isActive,
+      isFeatured: input.isFeatured,
+      sortOrder: input.sortOrder,
     };
 
     this.state.products = [product, ...this.state.products];
@@ -225,16 +563,17 @@ export class CommerceStore implements CommerceStoreAdapter {
     const existing = assertFound(
       this.state.products.find((product) => product.id === id),
       "PRODUCT_NOT_FOUND",
-      "Product not found."
+      "Product not found.",
     );
     const category = this.findCategory(input.categorySlug);
-    const slug = input.slug ?? uniqueSlug(input.name, this.state.products, id);
-    this.assertUniqueProductIdentity({ sku: input.sku, slug, currentId: id });
+    const slug = input.slug ?? existing.slug;
+    const sku = input.sku ?? existing.sku;
+    this.assertUniqueProductIdentity({ sku, slug, currentId: id });
 
     const product: Product = {
       ...existing,
       slug,
-      sku: input.sku,
+      sku,
       name: input.name,
       subtitle: input.subtitle ?? null,
       description: input.description,
@@ -243,19 +582,27 @@ export class CommerceStore implements CommerceStoreAdapter {
       compareAtPriceInCents: input.compareAtPriceInCents ?? null,
       stock: input.stock,
       lowStockThreshold: input.lowStockThreshold,
+      lowStockWarningEnabled: input.lowStockWarningEnabled,
       images: [
         {
           id: existing.images[0]?.id ?? randomUUID(),
           url: input.imageUrl,
           alt: input.imageAlt,
-          width: existing.images[0]?.width ?? 1200,
-          height: existing.images[0]?.height ?? 1500
-        }
+          width: input.imageWidth ?? existing.images[0]?.width ?? 1200,
+          height: input.imageHeight ?? existing.images[0]?.height ?? 1200,
+          contentType:
+            input.imageContentType ?? existing.images[0]?.contentType,
+          sizeBytes: input.imageSizeBytes ?? existing.images[0]?.sizeBytes,
+        },
       ],
-      isActive: input.isActive
+      isActive: input.isActive,
+      isFeatured: input.isFeatured,
+      sortOrder: input.sortOrder,
     };
 
-    this.state.products = this.state.products.map((item) => (item.id === id ? product : item));
+    this.state.products = this.state.products.map((item) =>
+      item.id === id ? product : item,
+    );
     this.save();
     return product;
   }
@@ -264,14 +611,17 @@ export class CommerceStore implements CommerceStoreAdapter {
     const existing = assertFound(
       this.state.products.find((product) => product.id === id),
       "PRODUCT_NOT_FOUND",
-      "Product not found."
+      "Product not found.",
     );
-    this.state.products = this.state.products.filter((product) => product.id !== existing.id);
+    this.state.products = this.state.products.filter(
+      (product) => product.id !== existing.id,
+    );
     this.save();
   }
 
   createOnlineOrder(input: {
     orderReference: string;
+    checkoutAccessTokenHash: string;
     customer: { name: string; email: string; phone: string };
     priced: PricedCart;
   }) {
@@ -284,33 +634,58 @@ export class CommerceStore implements CommerceStoreAdapter {
       customerPhone: input.customer.phone,
       status: "pending_payment",
       salesChannel: "online",
+      paymentStatus: "created",
+      shippingMode: "whatsapp_after_payment",
+      shippingStatus: "awaiting_payment",
+      contactStatus: "not_started",
       subtotalInCents: input.priced.subtotalInCents,
       discountInCents: input.priced.discountInCents,
-      shippingInCents: input.priced.shippingInCents,
+      shippingAmountInCents: null,
       totalInCents: input.priced.totalInCents,
       currency: "BRL",
+      shippingNotes: null,
+      deliveryMethod: "undecided",
+      deliveryAddress: null,
+      pickupInstructions: null,
+      shippingContactedAt: null,
+      shippingArrangedAt: null,
       createdAt: now,
       updatedAt: now,
       items: orderItemsFromCart(input.priced),
       mercadoPagoPreferenceId: null,
-      checkoutUrl: null
+      checkoutUrl: null,
     };
 
     this.state.orders = [order, ...this.state.orders];
+    this.state.checkoutAccess[input.orderReference] =
+      input.checkoutAccessTokenHash;
     this.save();
     return order;
   }
 
-  attachMercadoPagoPreference(orderReference: string, preferenceId: string | null, checkoutUrl: string) {
+  attachMercadoPagoPreference(
+    orderReference: string,
+    preferenceId: string | null,
+    checkoutUrl: string,
+  ) {
     this.state.orders = this.state.orders.map((order) =>
       order.publicReference === orderReference
-        ? { ...order, mercadoPagoPreferenceId: preferenceId, checkoutUrl, updatedAt: new Date().toISOString() }
-        : order
+        ? {
+            ...order,
+            mercadoPagoPreferenceId: preferenceId,
+            paymentStatus: "pending" as const,
+            checkoutUrl,
+            updatedAt: new Date().toISOString(),
+          }
+        : order,
     );
     this.save();
   }
 
-  createWhatsappRequest(input: { requestReference: string; priced: PricedCart }) {
+  createWhatsappRequest(input: {
+    requestReference: string;
+    priced: PricedCart;
+  }) {
     const now = new Date().toISOString();
     const request: StoredOrder = {
       id: randomUUID(),
@@ -320,19 +695,137 @@ export class CommerceStore implements CommerceStoreAdapter {
       customerPhone: null,
       status: "contact_requested",
       salesChannel: "whatsapp",
+      paymentStatus: null,
+      shippingMode: "manual",
+      shippingStatus: "awaiting_contact",
+      contactStatus: "whatsapp_opened",
       subtotalInCents: input.priced.subtotalInCents,
       discountInCents: input.priced.discountInCents,
-      shippingInCents: input.priced.shippingInCents,
+      shippingAmountInCents: null,
       totalInCents: input.priced.totalInCents,
       currency: "BRL",
+      shippingNotes: null,
+      deliveryMethod: "undecided",
+      deliveryAddress: null,
+      pickupInstructions: null,
+      shippingContactedAt: null,
+      shippingArrangedAt: null,
       createdAt: now,
       updatedAt: now,
-      items: orderItemsFromCart(input.priced)
+      items: orderItemsFromCart(input.priced),
     };
 
     this.state.orders = [request, ...this.state.orders];
     this.save();
     return request;
+  }
+
+  findCheckoutOrder(orderReference: string, checkoutAccessTokenHash: string) {
+    if (this.state.checkoutAccess[orderReference] !== checkoutAccessTokenHash) {
+      return null;
+    }
+    return (
+      this.state.orders.find(
+        (order) =>
+          order.publicReference === orderReference &&
+          order.salesChannel === "online",
+      ) ?? null
+    );
+  }
+
+  processMercadoPagoPayment(input: {
+    eventId: string;
+    eventType: string;
+    providerPaymentId: string;
+    orderReference: string;
+    status: PaymentStatus;
+    amountInCents: number;
+  }): PaymentUpdateResult {
+    if (this.state.webhookEvents.includes(input.eventId)) return "duplicate";
+    this.state.webhookEvents.push(input.eventId);
+    const index = this.state.orders.findIndex(
+      (order) =>
+        order.publicReference === input.orderReference &&
+        order.salesChannel === "online",
+    );
+    const order = this.state.orders[index];
+    if (!order || order.totalInCents !== input.amountInCents) {
+      this.save();
+      return "ignored";
+    }
+
+    const approved = input.status === "approved";
+    const refunded = input.status === "refunded";
+    const cancelled = input.status === "cancelled";
+    this.state.orders[index] = {
+      ...order,
+      paymentStatus: input.status,
+      providerPaymentId: input.providerPaymentId,
+      status: approved
+        ? "paid"
+        : refunded
+          ? "refunded"
+          : cancelled
+            ? "cancelled"
+            : order.status,
+      shippingStatus: approved
+        ? "awaiting_contact"
+        : refunded || cancelled
+          ? "cancelled"
+          : order.shippingStatus,
+      updatedAt: new Date().toISOString(),
+    };
+    this.save();
+    return "processed";
+  }
+
+  recordWhatsappOpen(orderReference: string, checkoutAccessTokenHash: string) {
+    const order = this.findCheckoutOrder(
+      orderReference,
+      checkoutAccessTokenHash,
+    );
+    if (!order || order.paymentStatus !== "approved") return false;
+    this.state.orders = this.state.orders.map((candidate) =>
+      candidate.publicReference === orderReference
+        ? {
+            ...candidate,
+            contactStatus: "whatsapp_opened" as const,
+            updatedAt: new Date().toISOString(),
+          }
+        : candidate,
+    );
+    this.save();
+    return true;
+  }
+
+  updateOrder(orderReference: string, input: AdminOrderUpdate) {
+    const existing = assertFound(
+      this.state.orders.find(
+        (order) => order.publicReference === orderReference,
+      ),
+      "ORDER_NOT_FOUND",
+      "Order not found.",
+    );
+    const now = new Date().toISOString();
+    const updated: StoredOrder = {
+      ...existing,
+      ...input,
+      shippingContactedAt:
+        input.contactStatus === "contact_started" &&
+        !existing.shippingContactedAt
+          ? now
+          : existing.shippingContactedAt,
+      shippingArrangedAt:
+        input.shippingStatus === "arranged" && !existing.shippingArrangedAt
+          ? now
+          : existing.shippingArrangedAt,
+      updatedAt: now,
+    };
+    this.state.orders = this.state.orders.map((order) =>
+      order.publicReference === orderReference ? updated : order,
+    );
+    this.save();
+    return updated;
   }
 
   orders() {
@@ -353,17 +846,26 @@ export class CommerceStore implements CommerceStoreAdapter {
     return assertFound(
       this.state.categories.find((category) => category.slug === slug),
       "CATEGORY_NOT_FOUND",
-      "Category not found."
+      "Category not found.",
     );
   }
 
-  private assertUniqueProductIdentity(input: { sku: string; slug: string; currentId?: string }) {
-    const duplicatedSku = this.state.products.some((product) => product.sku === input.sku && product.id !== input.currentId);
+  private assertUniqueProductIdentity(input: {
+    sku: string;
+    slug: string;
+    currentId?: string;
+  }) {
+    const duplicatedSku = this.state.products.some(
+      (product) => product.sku === input.sku && product.id !== input.currentId,
+    );
     if (duplicatedSku) {
       throw new ApiError(409, "PRODUCT_SKU_EXISTS", "SKU already exists.");
     }
 
-    const duplicatedSlug = this.state.products.some((product) => product.slug === input.slug && product.id !== input.currentId);
+    const duplicatedSlug = this.state.products.some(
+      (product) =>
+        product.slug === input.slug && product.id !== input.currentId,
+    );
     if (duplicatedSlug) {
       throw new ApiError(409, "PRODUCT_SLUG_EXISTS", "Slug already exists.");
     }

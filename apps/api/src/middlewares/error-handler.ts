@@ -3,6 +3,16 @@ import { ZodError } from "zod";
 import { ApiError } from "../shared/api-error.js";
 
 export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
+  if (error?.type === "entity.too.large") {
+    return res.status(413).json({
+      error: {
+        code: "PAYLOAD_TOO_LARGE",
+        message: "O arquivo enviado excede o limite permitido.",
+        requestId: req.requestId
+      }
+    });
+  }
+
   if (error instanceof ApiError) {
     return res.status(error.statusCode).json({
       error: {

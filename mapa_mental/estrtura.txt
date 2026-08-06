@@ -1,0 +1,196 @@
+
+## 🗺️ Mapa Mental do Projeto
+
+```
+CATÁLOGO DE PRODUTOS (bespoke)
+│
+├── 1. CAMADA DE APRESENTAÇÃO (Front End)
+│   ├── Layout Responsivo (Mobile-First)
+│   ├── Componentes: Header, Filtros, Grade de Produtos, Carrinho
+│   ├── Estado Global (Context API ou Zustand)
+│   └── Comunicação com API (fetch/axios)
+│
+├── 2. CAMADA DE NEGÓCIOS (Back End - API)
+│   ├── Autenticação (JWT com refresh token)
+│   ├── CRUD de Produtos, Categorias, Pedidos
+│   ├── Validação de Dados (express-validator ou zod)
+│   └── Integração com Gateway de Pagamento
+│
+├── 3. CAMADA DE DADOS (MySQL 8.0)
+│   ├── Tabelas: usuarios, produtos, categorias, pedidos, itens_pedido
+│   ├── Índices para buscas rápidas
+│   ├── Procedures para relatórios
+│   └── Backups automatizados
+│
+└── 4. CAMADA DE SEGURANÇA
+    ├── .env para variáveis sensíveis
+    ├── Helmet.js + CORS configurado
+    ├── Rate Limiting (evitar ataques de força bruta)
+    ├── Sanitização de inputs (SQL Injection/XSS)
+    └── Logs de acesso (Winston/Pino)
+```
+
+---
+
+## 📁 Estrutura de Arquivos Sugerida
+
+```
+boskope/
+│
+├── backend/
+│   ├── src/
+│   │   ├── config/
+│   │   │   ├── database.js       # Conexão com MySQL
+│   │   │   ├── jwt.js            # Configuração do JWT
+│   │   │   └── multer.js         # Upload de imagens
+│   │   │
+│   │   ├── models/
+│   │   │   ├── Produto.js
+│   │   │   ├── Categoria.js
+│   │   │   ├── Usuario.js
+│   │   │   └── Pedido.js
+│   │   │
+│   │   ├── controllers/
+│   │   │   ├── produtoController.js
+│   │   │   ├── categoriaController.js
+│   │   │   └── authController.js
+│   │   │
+│   │   ├── routes/
+│   │   │   ├── produtoRoutes.js
+│   │   │   ├── authRoutes.js
+│   │   │   └── pedidoRoutes.js
+│   │   │
+│   │   ├── middlewares/
+│   │   │   ├── auth.js            # Verifica JWT
+│   │   │   ├── validate.js        # Validação de inputs
+│   │   │   └── rateLimiter.js
+│   │   │
+│   │   ├── utils/
+│   │   │   ├── sanitize.js        # Limpeza de dados
+│   │   │   └── logger.js          # Winston para logs
+│   │   │
+│   │   └── server.js              # Entry point
+│   │
+│   ├── .env                       # Variáveis de ambiente
+│   ├── package.json
+│   └── Dockerfile                 # (opcional)
+│
+├── frontend/
+│   ├── public/
+│   │   └── assets/
+│   │       ├── images/
+│   │       └── icons/
+│   │
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── common/
+│   │   │   │   ├── Header.jsx
+│   │   │   │   ├── Footer.jsx
+│   │   │   │   └── SearchBar.jsx
+│   │   │   │
+│   │   │   ├── products/
+│   │   │   │   ├── ProductGrid.jsx
+│   │   │   │   ├── ProductCard.jsx
+│   │   │   │   └── ProductFilters.jsx
+│   │   │   │
+│   │   │   └── cart/
+│   │   │       ├── CartDrawer.jsx
+│   │   │       └── CartItem.jsx
+│   │   │
+│   │   ├── pages/
+│   │   │   ├── Home.jsx
+│   │   │   ├── Catalogo.jsx
+│   │   │   ├── ProdutoDetalhe.jsx
+│   │   │   └── Checkout.jsx
+│   │   │
+│   │   ├── context/
+│   │   │   ├── CartContext.jsx
+│   │   │   └── AuthContext.jsx
+│   │   │
+│   │   ├── services/
+│   │   │   ├── api.js            # Axios instance
+│   │   │   └── produtoService.js
+│   │   │
+│   │   ├── hooks/
+│   │   │   ├── useProducts.js
+│   │   │   └── useCart.js
+│   │   │
+│   │   ├── styles/
+│   │   │   ├── globals.css
+│   │   │   └── variables.css
+│   │   │
+│   │   └── App.jsx
+│   │
+│   ├── .env                       # Variáveis do front (ex: API_URL)
+│   ├── package.json
+│   └── tailwind.config.js         # (se usar Tailwind)
+│
+├── database/
+│   ├── migrations/
+│   │   ├── 001_create_usuarios.sql
+│   │   ├── 002_create_produtos.sql
+│   │   └── 003_create_pedidos.sql
+│   │
+│   └── seeds/
+│       └── initial_data.sql
+│
+├── docker-compose.yml             # (opcional, para subir MySQL + app)
+└── README.md
+```
+
+---
+
+## 🛡️ Segurança Essencial (Back End)
+
+```javascript
+// Exemplo de middleware de sanitização
+const { body, validationResult } = require('express-validator');
+
+const validateProduto = [
+  body('nome').trim().escape().notEmpty(),
+  body('preco').isDecimal({ decimal_digits: '2' }),
+  body('descricao').trim().escape(),
+];
+
+// Rate Limiter
+const rateLimit = require('express-rate-limit');
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100 // limite por IP
+});
+```
+
+---
+
+## 🎨 Dicas para UI Responsiva e Intuitiva
+
+1. **Mobile-First**: Use media queries com `min-width` (ex: 768px para tablet, 1024px para desktop)
+2. **Cores**: Defina uma paleta de **2-3 cores principais** no `variables.css`
+3. **Feedback visual**: Botões com hover/active, loading skeletons para produtos
+4. **Acessibilidade**: Tags semânticas (`<header>`, `<main>`, `<section>`) e atributos `aria-label`
+5. **Figma**: Use sua MCP para extrair cores, tipografia e espaçamentos do design system
+
+---
+
+## 🗄️ Modelo de Dados (MySQL)
+
+```sql
+-- Tabela de produtos (exemplo)
+CREATE TABLE produtos (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  nome VARCHAR(100) NOT NULL,
+  subtitulo VARCHAR(100),
+  descricao TEXT,
+  preco DECIMAL(10,2) NOT NULL,
+  imagem_url VARCHAR(255),
+  categoria_id INT,
+  estoque INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (categoria_id) REFERENCES categorias(id),
+  INDEX idx_categoria (categoria_id),
+  INDEX idx_preco (preco)
+);
+```
+
+---

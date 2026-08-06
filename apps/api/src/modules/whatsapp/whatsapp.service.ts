@@ -3,7 +3,10 @@ import type { WhatsappRequest, WhatsappResponse } from "@bespoke/contracts";
 import type { AppEnv } from "../../config/env.js";
 import { formatBrl } from "../../shared/money.js";
 import { CartService } from "../cart/cart.service.js";
-import type { CommerceStoreAdapter } from "../store/commerce.store.js";
+import type {
+  CommerceStoreAdapter,
+  StoredOrder,
+} from "../store/commerce.store.js";
 
 export class WhatsappService {
   constructor(
@@ -13,31 +16,22 @@ export class WhatsappService {
   ) {}
 
   async createRequest(input: WhatsappRequest): Promise<WhatsappResponse> {
-    const priced = await this.cart.assertAvailable(input.items, input.destinationPostalCode);
+    const priced = await this.cart.assertAvailable(input.items);
     const requestReference = `WSP-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
     await this.store.createWhatsappRequest({ requestReference, priced });
-
-    const lines = priced.lines
-      .map(
-        (line) =>
-          `- ${line.name} (${line.sku}) x${line.quantity} | ${formatBrl(line.unitPriceInCents)} cada | ${formatBrl(line.subtotalInCents)}`
-      )
-      .join("\n");
+    const settings = await this.store.storefront();
     const message = [
-      "Ola, Bespoke.",
+      `Ola, ${settings.brandName}.`,
       `Gostaria de continuar uma compra assistida. Referencia: ${requestReference}.`,
       "Itens:",
-      lines,
+      productLines(priced.lines),
       `Subtotal dos produtos: ${formatBrl(priced.subtotalInCents)}.`,
-      priced.shipping.destinationPostalCode
-        ? `Frete: ${formatBrl(priced.shippingInCents)} para CEP ${priced.shipping.destinationPostalCode}.`
-        : "Frete: a combinar no atendimento.",
-      priced.shipping.destinationPostalCode ? `Total estimado: ${formatBrl(priced.totalInCents)}.` : `Total sem frete: ${formatBrl(priced.subtotalInCents)}.`,
-      "Entendo que preco e estoque serao confirmados antes da finalizacao."
+      "Frete: a combinar pelo WhatsApp.",
+      `Total sem frete: ${formatBrl(priced.totalInCents)}.`,
+      settings.whatsappPurchaseMessage,
     ].join("\n");
 
-    const url = new URL(`https://wa.me/${this.env.WHATSAPP_STORE_PHONE}`);
-    url.searchParams.set("text", message);
+    const url = this.url(message, settings.whatsappNumber);
 
     return {
       requestReference,
@@ -45,4 +39,42 @@ export class WhatsappService {
       status: "contact_requested"
     };
   }
+
+  async postPaymentUrl(order: StoredOrder) {
+    const settings = await this.store.storefront();
+    const message = [
+      `Ola, ${settings.brandName}.`,
+      `Meu pagamento do pedido ${order.publicReference} foi confirmado.`,
+      "Itens:",
+      productLines(order.items),
+      `Total pago: ${formatBrl(order.totalInCents)}.`,
+      "Frete: a combinar pelo WhatsApp.",
+      settings.postPaymentWhatsappMessage,
+    ].join("\n");
+    return this.url(message, settings.whatsappNumber).toString();
+  }
+
+  private url(message: string, configuredPhone: string) {
+    const phone = configuredPhone || this.env.WHATSAPP_STORE_PHONE;
+    const url = new URL(`https://wa.me/${phone}`);
+    url.searchParams.set("text", message);
+    return url;
+  }
+}
+
+function productLines(
+  lines: Array<{
+    name: string;
+    sku?: string;
+    quantity: number;
+    unitPriceInCents: number;
+    subtotalInCents: number;
+  }>,
+) {
+  return lines
+    .map(
+      (line) =>
+        `- ${line.name}${line.sku ? ` (${line.sku})` : ""} x${line.quantity} | ${formatBrl(line.unitPriceInCents)} cada | ${formatBrl(line.subtotalInCents)}`,
+    )
+    .join("\n");
 }

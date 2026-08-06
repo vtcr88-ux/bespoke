@@ -1,0 +1,30 @@
+[Unit]
+Description=Catalog API (__INSTANCE_ID__)
+After=network-online.target mysql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__SERVICE_USER__
+Group=__SERVICE_GROUP__
+WorkingDirectory=__APP_ROOT__/current
+Environment=NODE_ENV=production
+EnvironmentFile=/etc/catalog-platform/__INSTANCE_ID__.env
+ExecStart=/usr/bin/node apps/api/dist/server.js
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=20s
+KillSignal=SIGTERM
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=/var/lib/catalog-platform/__INSTANCE_ID__/uploads
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+umask 077
+
+archive="${1:-}"
+confirmation="${2:-}"
+if [[ -z "${archive}" || "${confirmation}" != "--confirm" ]]; then
+  echo "Usage: ENV_FILE=/path/instance.env scripts/restore-instance /path/backup.tar.gz --confirm" >&2
+  exit 2
+fi
+: "${ENV_FILE:?Set ENV_FILE for the isolated restoration target}"
+source "${ENV_FILE}"
+: "${INSTANCE_ID:?INSTANCE_ID is required}"
+: "${DATABASE_HOST:=127.0.0.1}"
+: "${DATABASE_PORT:=3306}"
+: "${DATABASE_NAME:?DATABASE_NAME is required}"
+: "${DATABASE_USER:?DATABASE_USER is required}"
+: "${DATABASE_PASSWORD:?DATABASE_PASSWORD is required}"
+: "${UPLOADS_DIR:?UPLOADS_DIR is required}"
+
+checksum="${archive}.sha256"
+[[ -f "${checksum}" ]] || { echo "Missing checksum: ${checksum}" >&2; exit 1; }
+(cd "$(dirname "${archive}")" && sha256sum -c "$(basename "${checksum}")")
+
+mapfile -t archive_entries < <(tar -tzf "${archive}")
+expected_entries=(database.sql.gz uploads.tar.gz instance.env instance-id)
+[[ "${#archive_entries[@]}" -eq "${#expected_entries[@]}" ]] || {
+  echo "Backup archive contains an unexpected number of files." >&2
+  exit 1
+}
+for expected_entry in "${expected_entries[@]}"; do
+  printf '%s\n' "${archive_entries[@]}" | grep -Fxq "${expected_entry}" || {
+    echo "Backup archive is missing ${expected_entry}." >&2
+    exit 1
+  }
+done
+
+restore_uploads="${RESTORE_UPLOADS_PATH:-${UPLOADS_DIR}.restored}"
+restore_env="${RESTORE_ENV_PATH:-${UPLOADS_DIR}.restored.env}"
+[[ ! -e "${restore_uploads}" ]] || { echo "Restore path already exists: ${restore_uploads}" >&2; exit 1; }
+[[ ! -e "${restore_env}" ]] || { echo "Restore environment path already exists: ${restore_env}" >&2; exit 1; }
+
+staging="$(mktemp -d)"
+trap 'rm -rf "${staging}"' EXIT
+tar -C "${staging}" -xzf "${archive}"
+[[ "$(cat "${staging}/instance-id")" == "${INSTANCE_ID}" ]] || {
+  echo "Backup belongs to another instance." >&2
+  exit 1
+}
+gzip -t "${staging}/database.sql.gz"
+tar -tzf "${staging}/uploads.tar.gz" >/dev/null
+
+export MYSQL_PWD="${DATABASE_PASSWORD}"
+gzip -dc "${staging}/database.sql.gz" | mysql \
+  --host="${DATABASE_HOST}" \
+  --port="${DATABASE_PORT}" \
+  --user="${DATABASE_USER}" \
+  "${DATABASE_NAME}"
+
+mkdir -p "${restore_uploads}"
+tar --no-same-owner --no-same-permissions -C "${restore_uploads}" -xzf "${staging}/uploads.tar.gz"
+install -m 600 "${staging}/instance.env" "${restore_env}"
+printf 'Database restored. Uploads extracted to %s for validation.\n' "${restore_uploads}"
+printf 'Environment copy restored to %s. Review it before activation.\n' "${restore_env}"

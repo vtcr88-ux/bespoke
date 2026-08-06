@@ -1,0 +1,17 @@
+{
+  "storeName": "Example",
+  "legalName": "Example",
+  "logoUrl": "",
+  "logoOnDarkUrl": "",
+  "faviconUrl": "",
+  "socialImageUrl": "",
+  "primaryColor": "#090907",
+  "accentColor": "#c9a76d",
+  "backgroundColor": "#ffffff",
+  "contactEmail": "",
+  "whatsappNumber": "",
+  "defaultMetaTitle": "Example | Catalogo",
+  "defaultMetaDescription": "Conheca a curadoria da Example e escolha como concluir sua compra.",
+  "layoutPreset": "editorial",
+  "motionPreset": "editorial"
+}

@@ -1,30 +1,45 @@
 import crypto from "node:crypto";
 import { MercadoPagoConfig, Preference } from "mercadopago";
-import type { CheckoutRequest, CheckoutResponse } from "@bespoke/contracts";
+import type {
+  CheckoutRequest,
+  CheckoutResponse,
+  CheckoutStatusResponse,
+} from "@bespoke/contracts";
 import type { AppEnv } from "../../config/env.js";
 import { ApiError } from "../../shared/api-error.js";
 import type { CommerceStoreAdapter } from "../store/commerce.store.js";
 import { CartService } from "../cart/cart.service.js";
+import { WhatsappService } from "../whatsapp/whatsapp.service.js";
 
 export class CheckoutService {
   constructor(
     private readonly cart: CartService,
     private readonly store: CommerceStoreAdapter,
-    private readonly env: AppEnv
+    private readonly env: AppEnv,
+    private readonly whatsapp: WhatsappService,
   ) {}
 
   async createPreference(input: CheckoutRequest): Promise<CheckoutResponse> {
-    const priced = await this.cart.assertAvailable(input.items, input.shipping.destinationPostalCode);
-    const orderReference = `BSP-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
-    await this.store.createOnlineOrder({ orderReference, customer: input.customer, priced });
+    const priced = await this.cart.assertAvailable(input.items);
+    const orderReference = `ORD-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+    const checkoutAccessToken = crypto.randomBytes(32).toString("base64url");
+    await this.store.createOnlineOrder({
+      orderReference,
+      checkoutAccessTokenHash: hashAccessToken(checkoutAccessToken),
+      customer: input.customer,
+      priced,
+    });
 
     if (this.isPlaceholderToken()) {
-      const checkoutUrl = this.localCheckoutUrl(orderReference, priced.totalInCents);
+      const checkoutUrl = this.localCheckoutUrl(
+        orderReference,
+      );
       await this.store.attachMercadoPagoPreference(orderReference, null, checkoutUrl);
       return {
         orderReference,
         preferenceId: null,
         checkoutUrl,
+        checkoutAccessToken,
         status: "pending_payment"
       };
     }
@@ -36,27 +51,23 @@ export class CheckoutService {
     });
     const preference = new Preference(client);
 
+    const returnUrl = this.returnUrl(orderReference);
+    const storefront = await this.store.storefront();
     const response = await preference.create({
       body: {
         external_reference: orderReference,
-        statement_descriptor: "BESPOKE",
+        statement_descriptor: statementDescriptor(storefront.brandName),
         auto_return: "approved",
         notification_url: `${this.env.PUBLIC_API_URL}/webhooks/mercado-pago`,
         back_urls: {
-          success: `${this.env.PUBLIC_WEB_URL}/checkout/sandbox?status=success&order=${orderReference}`,
-          pending: `${this.env.PUBLIC_WEB_URL}/checkout/sandbox?status=pending&order=${orderReference}`,
-          failure: `${this.env.PUBLIC_WEB_URL}/checkout/sandbox?status=failure&order=${orderReference}`
+          success: returnUrl,
+          pending: returnUrl,
+          failure: returnUrl,
         },
         payer: {
           name: input.customer.name,
           email: input.customer.email,
           phone: parsePhone(input.customer.phone)
-        },
-        shipments: {
-          cost: centsToMercadoPagoAmount(priced.shippingInCents),
-          receiver_address: {
-            zip_code: input.shipping.destinationPostalCode
-          }
         },
         items: priced.lines.map((line) => ({
           id: line.sku,
@@ -81,19 +92,76 @@ export class CheckoutService {
       orderReference,
       preferenceId: response.id ?? null,
       checkoutUrl,
+      checkoutAccessToken,
       status: "pending_payment"
     };
   }
 
-  private isPlaceholderToken() {
-    return this.env.MERCADO_PAGO_ACCESS_TOKEN.includes("replace_me");
+  async status(
+    orderReference: string,
+    checkoutAccessToken: string,
+  ): Promise<CheckoutStatusResponse> {
+    const order = await this.store.findCheckoutOrder(
+      orderReference,
+      hashAccessToken(checkoutAccessToken),
+    );
+    if (!order || !order.paymentStatus || !order.shippingStatus) {
+      throw new ApiError(404, "CHECKOUT_NOT_FOUND", "Pedido nao encontrado.");
+    }
+    const approved = order.paymentStatus === "approved";
+    return {
+      orderReference: order.publicReference,
+      paymentStatus: order.paymentStatus,
+      shippingStatus: order.shippingStatus,
+      shippingAmountInCents: order.shippingAmountInCents,
+      totalPaidInCents: order.totalInCents,
+      currency: "BRL",
+      items: order.items.map((item) => ({
+        productId: item.productId,
+        name: item.name,
+        quantity: item.quantity,
+        unitPriceInCents: item.unitPriceInCents,
+        subtotalInCents: item.subtotalInCents,
+        imageUrl: item.imageUrl,
+      })),
+      whatsappUrl: approved ? await this.whatsapp.postPaymentUrl(order) : null,
+      canContinueOnWhatsapp: approved,
+    };
   }
 
-  private localCheckoutUrl(orderReference: string, totalInCents: number) {
-    const checkoutUrl = new URL("/checkout/sandbox", this.env.PUBLIC_WEB_URL);
-    checkoutUrl.searchParams.set("order", orderReference);
-    checkoutUrl.searchParams.set("amount", String(totalInCents));
-    return checkoutUrl.toString();
+  async recordWhatsappOpen(
+    orderReference: string,
+    checkoutAccessToken: string,
+  ) {
+    const recorded = await this.store.recordWhatsappOpen(
+      orderReference,
+      hashAccessToken(checkoutAccessToken),
+    );
+    if (!recorded) {
+      throw new ApiError(
+        409,
+        "PAYMENT_NOT_APPROVED",
+        "O atendimento sera liberado apos a confirmacao do pagamento.",
+      );
+    }
+  }
+
+  private isPlaceholderToken() {
+    return this.env.MERCADO_PAGO_ACCESS_TOKEN
+      .toLowerCase()
+      .includes("replace_me");
+  }
+
+  private localCheckoutUrl(
+    orderReference: string,
+  ) {
+    return this.returnUrl(orderReference);
+  }
+
+  private returnUrl(orderReference: string) {
+    const url = new URL("/checkout/sandbox", this.env.PUBLIC_WEB_URL);
+    url.searchParams.set("order", orderReference);
+    return url.toString();
   }
 }
 
@@ -111,4 +179,19 @@ function parsePhone(phone: string) {
     area_code: digits.slice(0, 2),
     number: digits.slice(2)
   };
+}
+
+export function hashAccessToken(value: string) {
+  return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+function statementDescriptor(value: string) {
+  const normalized = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9 ]/g, "")
+    .trim()
+    .slice(0, 22)
+    .toUpperCase();
+  return normalized || "LOJA ONLINE";
 }

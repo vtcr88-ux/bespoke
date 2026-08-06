@@ -1,0 +1,1208 @@
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:39
+                const error = new ZodError(ctx.common.issues);
+                              ^
+
+ZodError: [
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "heroSubtitle",
+      "heroPrimaryCtaLabel",
+      "heroSecondaryCtaLabel"
+    ],
+    "path": [],
+    "message": "Unrecognized key(s) in object: 'heroSubtitle', 'heroPrimaryCtaLabel', 'heroSecondaryCtaLabel'"
+  }
+]
+    at get error [as error] (file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:39:31)
+    at ZodObject.parse (file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:114:22)
+    at normalizeStorefrontSettings (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:111:35)
+    at normalizeState (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:100:17)
+    at Function.fromFile (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:157:9)
+    at createStore (C:\Users\note2024\Desktop\bespoke\apps\api\src\app.ts:52:26)
+    at createApp (C:\Users\note2024\Desktop\bespoke\apps\api\src\app.ts:61:17)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:6:13)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24) {
+  issues: [
+    {
+      code: 'unrecognized_keys',
+      keys: [
+        'heroSubtitle',
+        'heroPrimaryCtaLabel',
+        'heroSecondaryCtaLabel'
+      ],
+      path: [],
+      message: "Unrecognized key(s) in object: 'heroSubtitle', 'heroPrimaryCtaLabel', 'heroSecondaryCtaLabel'"
+    }
+  ],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonymous)],
+  errors: [
+    {
+      code: 'unrecognized_keys',
+      keys: [
+        'heroSubtitle',
+        'heroPrimaryCtaLabel',
+        'heroSecondaryCtaLabel'
+      ],
+      path: [],
+      message: "Unrecognized key(s) in object: 'heroSubtitle', 'heroPrimaryCtaLabel', 'heroSecondaryCtaLabel'"
+    }
+  ]
+}
+
+Node.js v20.20.0
+file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:39
+                const error = new ZodError(ctx.common.issues);
+                              ^
+
+ZodError: [
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "heroSubtitle",
+      "heroPrimaryCtaLabel",
+      "heroSecondaryCtaLabel"
+    ],
+    "path": [],
+    "message": "Unrecognized key(s) in object: 'heroSubtitle', 'heroPrimaryCtaLabel', 'heroSecondaryCtaLabel'"
+  }
+]
+    at get error [as error] (file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:39:31)
+    at ZodObject.parse (file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:114:22)
+    at normalizeStorefrontSettings (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:111:35)
+    at normalizeState (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:100:17)
+    at Function.fromFile (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:157:9)
+    at createStore (C:\Users\note2024\Desktop\bespoke\apps\api\src\app.ts:52:26)
+    at createApp (C:\Users\note2024\Desktop\bespoke\apps\api\src\app.ts:61:17)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:6:13)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24) {
+  issues: [
+    {
+      code: 'unrecognized_keys',
+      keys: [
+        'heroSubtitle',
+        'heroPrimaryCtaLabel',
+        'heroSecondaryCtaLabel'
+      ],
+      path: [],
+      message: "Unrecognized key(s) in object: 'heroSubtitle', 'heroPrimaryCtaLabel', 'heroSecondaryCtaLabel'"
+    }
+  ],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonyfile:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:39
+                const error = new ZodError(ctx.common.issues);
+                              ^
+
+ZodError: [
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "heroSubtitle",
+      "heroPrimaryCtaLabel",
+      "heroSecondaryCtaLabel"
+    ],
+    "pathfile:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:39
+                const error = new ZodError(ctx.common.issues);
+                              ^
+
+ZodError: [
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "heroSubtitle"
+    ],
+    "path": [],
+    "message": "Unrecognized key(s) in object: 'heroSubtitle'"
+  }
+]
+    at get error [as error] (file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:39:31)
+    at ZodObject.parse (file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:114:22)
+    at normalizeStorefrontSettings (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:126:35)
+    at normalizeState (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:105:17)
+    at Function.fromFile (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:178:9)
+    at createStore (C:\Users\note2024\Desktop\bespoke\apps\api\src\app.ts:52:26)
+    at createApp (C:\Users\note2024\Desktop\bespoke\apps\api\src\app.ts:61:17)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:6:13)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24) {
+  issues: [
+    {
+      code: 'unrecognized_keys',
+      keys: [ 'heroSubtitle' ],
+      path: [],
+      message: "Unrecognized key(s) in object: 'heroSubtitle'"
+    }
+  ],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonymous)],
+  errors: [
+    {
+      code: 'unrecognized_keys',
+      keys: [ 'heroSubtitle' ],
+      path: [],
+      message: "Unrecognized key(s) in object: 'heroSubtitle'"
+    }
+  ]
+}
+
+Node.js v20.20.0
+file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:39
+                const error = new ZodError(ctx.common.issues);
+                              ^
+
+ZodError: [
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "heroSubtitle"
+    ],
+    "path": [],
+    "message": "Unrecognized key(s) in object: 'heroSubtitle'"
+  }
+]
+    at get error [as error] (file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:39:31)
+    at ZodObject.parse (file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:114:22)
+    at normalizeStorefrontSettings (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:126:35)
+    at normalizeState (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:105:17)
+    at Function.fromFile (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:178:9)
+    at createStore (C:\Users\note2024\Desktop\bespoke\apps\api\src\app.ts:52:26)
+    at createApp (C:\Users\note2024\Desktop\bespoke\apps\api\src\app.ts:61:17)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:6:13)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24) {
+  issues: [
+    {
+      code: 'unrecognized_keys',
+      keys: [ 'heroSubtitle' ],
+      path: [],
+      message: "Unrecognized key(s) in object: 'heroSubtitle'"
+    }
+  ],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonymous)],
+  errors: [
+    {
+      code: 'unrecognized_keys',
+      keys: [ 'heroSubtitle' ],
+      path: [],
+      message: "Unrecognized key(s) in object: 'heroSubtitle'"
+    }
+  ]
+}
+
+Node.js v20.20.0
+file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:39
+                const error = new ZodError(ctx.common.issues);
+                              ^
+
+ZodError: [
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "heroSubtitle"
+    ],
+    "path": [],
+    "message": "Unrecognized key(s) in object: 'heroSubtitle'"
+  }
+]
+    at get error [as error] (file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:39:31)
+    at ZodObject.parse (file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:114:22)
+    at normalizeStorefrontSettings (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:126:35)
+    at normalizeState (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:105:17)
+    at Function.fromFile (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:178:9)
+    at createStore (C:\Users\note2024\Desktop\bespoke\apps\api\src\app.ts:52:26)
+    at createApp (C:\Users\note2024\Desktop\bespoke\apps\api\src\app.ts:61:17)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:6:13)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24) {
+  issues: [
+    {
+      code: 'unrecognized_keys',
+      keys: [ 'heroSubtitle' ],
+      path: [],
+      message: "Unrecognized key(s) in object: 'heroSubtitle'"
+    }
+  ],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonymous)],
+  errors: [
+    {
+      code: 'unrecognized_keys',
+      keys: [ 'heroSubtitle' ],
+      path: [],
+      message: "Unrecognized key(s) in object: 'heroSubtitle'"
+    }
+  ]
+}
+
+Node.js v20.20.0
+file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:39
+                const error = new ZodError(ctx.common.issues);
+                              ^
+
+ZodError: [
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "heroSubtitle"
+    ],
+    "path": [],
+    "message": "Unrecognized key(s) in object: 'heroSubtitle'"
+  }
+]
+    at get error [as error] (file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:39:31)
+    at ZodObject.parse (file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:114:22)
+    at normalizeStorefrontSettings (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:126:35)
+    at normalizeState (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:105:17)
+    at Function.fromFile (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:178:9)
+    at createStore (C:\Users\note2024\Desktop\bespoke\apps\api\src\app.ts:52:26)
+    at createApp (C:\Users\note2024\Desktop\bespoke\apps\api\src\app.ts:61:17)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:6:13)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24) {
+  issues: [
+    {
+      code: 'unrecognized_keys',
+      keys: [ 'heroSubtitle' ],
+      path: [],
+      message: "Unrecognized key(s) in object: 'heroSubtitle'"
+    }
+  ],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonymous)],
+  errors: [
+    {
+      code: 'unrecognized_keys',
+      keys: [ 'heroSubtitle' ],
+      path: [],
+      message: "Unrecognized key(s) in object: 'heroSubtitle'"
+    }
+  ]
+}
+
+Node.js v20.20.0
+file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:39
+                const error = new ZodError(ctx.common.issues);
+                              ^
+
+ZodError: [
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "heroSubtitle"
+    ],
+    "path": [],
+    "message": "Unrecognized key(s) in object: 'heroSubtitle'"
+  }
+]
+    at get error [as error] (file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:39:31)
+    at ZodObject.parse (file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:114:22)
+    at normalizeStorefrontSettings (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:126:35)
+    at normalizeState (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:105:17)
+    at Function.fromFile (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:178:9)
+    at createStore (C:\Users\note2024\Desktop\bespoke\apps\api\src\app.ts:52:26)
+    at createApp (C:\Users\note2024\Desktop\bespoke\apps\api\src\app.ts:61:17)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:6:13)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24) {
+  issues: [
+    {
+      code: 'unrecognized_keys',
+      keys: [ 'heroSubtitle' ],
+      path: [],
+      message: "Unrecognized key(s) in object: 'heroSubtitle'"
+    }
+  ],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonymous)],
+  errors: [
+    {
+      code: 'unrecognized_keys',
+      keys: [ 'heroSubtitle' ],
+      path: [],
+      message: "Unrecognized key(s) in object: 'heroSubtitle'"
+    }
+  ]
+}
+
+Node.js v20.20.0
+file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:39
+                const error = new ZodError(ctx.common.issues);
+                              ^
+
+ZodError: [
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "heroSubtitle"
+    ],
+    "path": [],
+    "message": "Unrecognized key(s) in object: 'heroSubtitle'"
+  }
+]
+    at get error [as error] (file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:39:31)
+    at ZodObject.parse (file:///C:/Users/note2024/Desktop/bespoke/node_modules/zod/v3/types.js:114:22)
+    at normalizeStorefrontSettings (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:126:35)
+    at normalizeState (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:105:17)
+    at Function.fromFile (C:\Users\note2024\Desktop\bespoke\apps\api\src\modules\store\commerce.store.ts:178:9)
+    at createStore (C:\Users\note2024\Desktop\bespoke\apps\api\src\app.ts:54:26)
+    at createApp (C:\Users\note2024\Desktop\bespoke\apps\api\src\app.ts:63:17)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:6:13)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24) {
+  issues: [
+    {
+      code: 'unrecognized_keys',
+      keys: [ 'heroSubtitle' ],
+      path: [],
+      message: "Unrecognized key(s) in object: 'heroSubtitle'"
+    }
+  ],
+  addIssue: [Function (anonymous)],
+  addIssues: [Function (anonymous)],
+  errors: [
+    {
+      code: 'unrecognized_keys',
+      keys: [ 'heroSubtitle' ],
+      path: [],
+      message: "Unrecognized key(s) in object: 'heroSubtitle'"
+    }
+  ]
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      thrownode:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3node:events:502
+      thrownode:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+333
+}
+
+Node.js v20.20.0
+ at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0
+node:events:502
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: listen EADDRINUSE: address already in use :::3333
+    at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+    at listenInCluster (node:net:1965:12)
+    at Server.listen (node:net:2067:7)
+    at Function.listen (C:\Users\note2024\Desktop\bespoke\node_modules\express\lib\application.js:635:24)
+    at <anonymous> (C:\Users\note2024\Desktop\bespoke\apps\api\src\server.ts:8:5)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+Emitted 'error' event on Server instance at:
+    at emitErrorNT (node:net:1944:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21) {
+  code: 'EADDRINUSE',
+  errno: -4091,
+  syscall: 'listen',
+  address: '::',
+  port: 3333
+}
+
+Node.js v20.20.0

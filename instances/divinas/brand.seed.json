@@ -1,0 +1,18 @@
+{
+  "storeName": "Divinas",
+  "legalName": "Divinas",
+  "logoUrl": "",
+  "logoOnDarkUrl": "",
+  "faviconUrl": "",
+  "socialImageUrl": "",
+  "primaryColor": "#090907",
+  "accentColor": "#e6b156",
+  "footerColor": "#e6b156",
+  "backgroundColor": "#ffffff",
+  "contactEmail": "",
+  "whatsappNumber": "",
+  "defaultMetaTitle": "Divinas | Catalogo",
+  "defaultMetaDescription": "Conheca a curadoria da Divinas e escolha como concluir sua compra.",
+  "layoutPreset": "showcase",
+  "motionPreset": "scroll"
+}

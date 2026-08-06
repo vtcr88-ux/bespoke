@@ -1,0 +1,8 @@
+services:
+  mysql:
+    container_name: catalog-divinas-mysql
+    volumes:
+      - catalog_divinas_mysql:/var/lib/mysql
+
+volumes:
+  catalog_divinas_mysql:

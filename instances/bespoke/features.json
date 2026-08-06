@@ -1,0 +1,5 @@
+{
+  "onlinePayment": true,
+  "whatsappPurchase": true,
+  "shippingMode": "whatsapp_after_payment"
+}
