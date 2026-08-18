@@ -1,5 +1,6 @@
 import type {
   AdminCategoryInput,
+  AdminOrderArchiveInput,
   AdminOrderUpdate,
   AdminProductInput,
   AdminProductRow,
@@ -7,11 +8,15 @@ import type {
   ImageDeleteResponse,
   ImageUploadResponse,
   OrderSummary,
+  PixSettings,
   Product,
   StorefrontSettings,
   SupportedImageContentType,
 } from "@bespoke/contracts";
-import { resolveAdminApiBaseUrl } from "./api-base-url";
+import {
+  resolveAdminApiBaseUrl,
+  resolveAdminMediaUrl,
+} from "./api-base-url";
 
 const apiBaseUrl = resolveAdminApiBaseUrl(
   import.meta.env.VITE_API_BASE_URL,
@@ -21,6 +26,9 @@ const unsafeMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 export const adminUnauthorizedEvent = "bespoke:admin-unauthorized";
 let csrfToken: string | null = null;
 let authGeneration = 0;
+
+export const adminMediaUrl = (url: string) =>
+  resolveAdminMediaUrl(url, apiBaseUrl);
 
 export type AdminSession = {
   admin: {
@@ -54,8 +62,16 @@ export type AdminOverview = {
     pendingOrders: number;
     lowStockCount: number;
     activeProducts: number;
+    activeStockUnits: number;
     inventoryValueInCents: number;
   };
+  revenueByChannel: { online: number; whatsapp: number };
+  monthlyRevenue: Array<{
+    month: string;
+    onlineInCents: number;
+    whatsappInCents: number;
+    totalInCents: number;
+  }>;
   alerts: Array<{ tone: "warning" | "danger" | "success"; message: string }>;
   recentOrders: OrderSummary[];
 };
@@ -186,13 +202,49 @@ export const updateProduct = (id: string, payload: AdminProductInput) =>
   });
 export const deleteProduct = (id: string) =>
   adminApi<void>(`/admin/products/${id}`, { method: "DELETE" });
-export const getOrders = () =>
-  adminApi<{ items: OrderSummary[] }>("/admin/orders");
+export const getOrders = (archived = false) =>
+  adminApi<{ items: OrderSummary[] }>(
+    `/admin/orders${archived ? "?archived=true" : ""}`,
+  );
+export const setOrdersArchived = (payload: AdminOrderArchiveInput) =>
+  adminApi<{ changed: number }>("/admin/orders/archive", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+export const setWhatsappRevenueConfirmed = (
+  reference: string,
+  confirmed: boolean,
+) =>
+  adminApi<OrderSummary>(
+    `/admin/orders/${encodeURIComponent(reference)}/whatsapp-revenue`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ confirmed }),
+    },
+  );
 export const updateOrder = (reference: string, payload: AdminOrderUpdate) =>
   adminApi<OrderSummary>(`/admin/orders/${encodeURIComponent(reference)}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
+export const getPixSettings = () =>
+  adminApi<PixSettings>("/admin/payments/pix");
+export const updatePixSettings = (payload: PixSettings) =>
+  adminApi<PixSettings>("/admin/payments/pix", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+export const setPixPaymentStatus = (
+  reference: string,
+  status: "approved" | "rejected",
+) =>
+  adminApi<OrderSummary>(
+    `/admin/orders/${encodeURIComponent(reference)}/pix-payment`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    },
+  );
 export const getStorefront = () =>
   adminApi<StorefrontSettings>("/admin/storefront");
 export const updateStorefront = (payload: StorefrontSettings) =>

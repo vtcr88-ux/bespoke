@@ -56,6 +56,8 @@ try {
       RowDataPacket & {
         categories: number;
         products: number;
+        activeProducts: number;
+        inactiveProducts: number;
         orders: number;
         settings: number;
         storefrontRevisions: number;
@@ -65,6 +67,8 @@ try {
     SELECT
       (SELECT COUNT(*) FROM categories) AS categories,
       (SELECT COUNT(*) FROM products) AS products,
+      (SELECT COUNT(*) FROM products WHERE is_active = TRUE) AS activeProducts,
+      (SELECT COUNT(*) FROM products WHERE is_active = FALSE) AS inactiveProducts,
       (SELECT COUNT(*) FROM orders) AS orders,
       (SELECT COUNT(*) FROM store_settings) AS settings,
       (SELECT COUNT(*) FROM storefront_setting_revisions) AS storefrontRevisions
@@ -120,7 +124,7 @@ try {
     [
       "Commerce storage: MySQL ready.",
       `Migrations: ${migrations.length} applied; latest ${latestMigration}.`,
-      `Data: ${counts.categories} categories, ${counts.products} products, ${counts.orders} orders, ${counts.settings} storefront settings.`,
+      `Data: ${counts.categories} categories, ${counts.products} product record(s) (${counts.activeProducts} active, ${counts.inactiveProducts} inactive/history), ${counts.orders} orders, ${counts.settings} storefront settings.`,
       `Storefront history: ${counts.storefrontRevisions} revision(s).`,
       `Uploads: writable at ${uploadsRoot}.`,
       `Upload references: ${referencedUploads.size} file(s) present.`,

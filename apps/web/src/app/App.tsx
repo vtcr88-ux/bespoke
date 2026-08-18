@@ -27,6 +27,8 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock3,
+  Copy,
+  CreditCard,
   ImageOff,
   Menu,
   MessageCircle,
@@ -34,6 +36,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Plus,
+  QrCode,
   Search,
   ShoppingBag,
   SlidersHorizontal,
@@ -42,11 +45,13 @@ import {
   X,
 } from "lucide-react";
 import {
+  defaultCatalogTextStyles,
   defaultFooterLinks,
   defaultHomeSections,
   defaultManifestoItems,
   defaultStorefrontTextStyles,
   formatFooterCopyright,
+  formatProductCardDescription,
   isSystemFooterLink,
   orderFooterLinks,
   storefrontSettingsSchema,
@@ -78,8 +83,11 @@ import {
 } from "@bespoke/design-system";
 import {
   createCheckout,
+  createPixCheckout,
   createWhatsappRequest,
   getCheckoutStatus,
+  getPaymentMethods,
+  getPixPayment,
   getProduct,
   getStorefrontSettings,
   getSupportWhatsappUrl,
@@ -88,15 +96,18 @@ import {
   listProducts,
   priceCart,
   recordCheckoutWhatsappOpen,
+  recordPixWhatsappOpen,
   storefrontEventsUrl,
 } from "../lib/api";
 import { formatMoney } from "../lib/format";
+import { useStorefrontPreviewMedia } from "../lib/storefront-preview-media";
 import { useCartStore } from "../stores/cart";
 import {
   EditorialNavigation,
   EditorialStatement,
   FeaturedCollectionHeading,
   HeroSection,
+  ReviewsSection,
   type EditorialNavigationItem,
 } from "../components/HomeSections";
 
@@ -116,8 +127,19 @@ const storefrontPreviewLocationType = "bespoke:storefront-preview-location";
 function isStorefrontPreviewMode() {
   return (
     typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("storefront-preview") ===
-      "admin"
+    (isEmbeddedStorefrontPreview() ||
+      new URLSearchParams(window.location.search).get("storefront-preview") ===
+        "admin")
+  );
+}
+
+function isEmbeddedStorefrontPreview() {
+  return Boolean(
+    (
+      window as typeof window & {
+        __BESPOKE_EMBEDDED_STOREFRONT_PREVIEW__?: boolean;
+      }
+    ).__BESPOKE_EMBEDDED_STOREFRONT_PREVIEW__,
   );
 }
 
@@ -129,6 +151,9 @@ const textStyleCssNames = {
   featuredEyebrow: "featured-eyebrow",
   featuredTitle: "featured-title",
   productCardTitle: "product-card-title",
+  reviewsEyebrow: "reviews-eyebrow",
+  reviewsTitle: "reviews-title",
+  reviewsBody: "reviews-body",
   footerSlogan: "footer-slogan",
 } satisfies Record<keyof StorefrontSettings["homeTextStyles"], string>;
 
@@ -141,6 +166,8 @@ function storefrontTextFontValue(
     body: "var(--font-body)",
     modern: 'Aptos, "Segoe UI", Arial, sans-serif',
     classic: 'Georgia, "Times New Roman", serif',
+    humanist: '"Trebuchet MS", "Segoe UI", sans-serif',
+    editorial: 'Palatino, "Palatino Linotype", "Book Antiqua", serif',
   } as const;
   return fonts[font];
 }
@@ -157,9 +184,44 @@ function storefrontTextVariables(settings: StorefrontSettings) {
     if (style.color) variables[`--text-${cssName}-color`] = style.color;
     variables[`--text-${cssName}-size`] = `${style.fontSize}px`;
     variables[`--text-${cssName}-space`] = `${style.spacingAfter}px`;
-    variables[`--text-${cssName}-font`] = storefrontTextFontValue(
-      style.fontFamily,
-    );
+    if (style.fontFamily !== "inherit") {
+      variables[`--text-${cssName}-font`] = storefrontTextFontValue(
+        style.fontFamily,
+      );
+    }
+  }
+
+  return variables;
+}
+
+const catalogTextStyleCssNames = {
+  eyebrow: "eyebrow",
+  title: "title",
+  description: "description",
+  category: "card-category",
+  cardTitle: "card-title",
+  cardDescription: "card-description",
+  price: "card-price",
+  button: "card-button",
+} satisfies Record<keyof StorefrontSettings["catalogTextStyles"], string>;
+
+function catalogTextVariables(settings: StorefrontSettings) {
+  const variables: Record<string, string> = {};
+  const textStyles = settings.catalogTextStyles ?? defaultCatalogTextStyles;
+
+  for (const key of Object.keys(catalogTextStyleCssNames) as Array<
+    keyof StorefrontSettings["catalogTextStyles"]
+  >) {
+    const style = textStyles[key];
+    const cssName = catalogTextStyleCssNames[key];
+    if (style.color) variables[`--catalog-text-${cssName}-color`] = style.color;
+    variables[`--catalog-text-${cssName}-size`] = `${style.fontSize}px`;
+    variables[`--catalog-text-${cssName}-space`] = `${style.spacingAfter}px`;
+    if (style.fontFamily !== "inherit") {
+      variables[`--catalog-text-${cssName}-font`] = storefrontTextFontValue(
+        style.fontFamily,
+      );
+    }
   }
 
   return variables;
@@ -192,11 +254,33 @@ function recallCheckoutAccess(orderReference: string) {
   }
 }
 
+async function copyText(value: string) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return;
+    } catch {
+      // Continue with the selection fallback used by restricted browsers.
+    }
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  if (!copied) throw new Error("Nao foi possivel copiar o codigo Pix.");
+}
+
 function useStorefrontSettingsQuery() {
   const previewMode = isStorefrontPreviewMode();
   return useQuery({
     queryKey: ["storefront-settings"],
     queryFn: getStorefrontSettings,
+    enabled: !previewMode,
     staleTime: 0,
     refetchOnWindowFocus: previewMode ? false : "always",
   });
@@ -204,12 +288,73 @@ function useStorefrontSettingsQuery() {
 
 function useStorefrontPreviewBridge(enabled: boolean) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const route = useLocation();
+  const previewFocusRequestRef = useRef(0);
 
   useEffect(() => {
     if (!enabled || window.parent === window) return;
 
     const sendToParent = (type: string) => {
       window.parent.postMessage({ type }, "*");
+    };
+    const focusPreviewLocation = (
+      location: "top" | "catalog" | "reviews" | "footer",
+      requestId: number,
+      attempt = 0,
+    ) => {
+      if (requestId !== previewFocusRequestRef.current) return;
+
+      const targetPath = location === "catalog" ? "/catalogo" : "/";
+      if (route.pathname !== targetPath) return;
+
+      const targetSelector =
+        location === "catalog"
+          ? ".catalog-page"
+          : location === "reviews"
+            ? ".reviews-section"
+            : location === "footer"
+              ? ".site-footer"
+              : ".hero";
+      const target = document.querySelector(targetSelector);
+
+      // PageTransition waits for the previous route to leave before mounting
+      // the next one. Keep the requested location until that target exists.
+      if (!target && attempt < 120) {
+        window.requestAnimationFrame(() =>
+          focusPreviewLocation(location, requestId, attempt + 1),
+        );
+        return;
+      }
+      if (!target) return;
+
+      if (location === "top" || location === "catalog") {
+        window.scrollTo({ top: 0, behavior: "auto" });
+        return;
+      }
+      target.scrollIntoView({ block: "start", behavior: "auto" });
+    };
+    const applyPreviewLocation = (
+      location: "top" | "catalog" | "reviews" | "footer",
+    ) => {
+      const requestId = previewFocusRequestRef.current + 1;
+      previewFocusRequestRef.current = requestId;
+      document.documentElement.dataset.storefrontPreviewLocation = location;
+      const targetPath = location === "catalog" ? "/catalogo" : "/";
+      if (route.pathname !== targetPath) {
+        navigate(
+          {
+            pathname: targetPath,
+            search: isEmbeddedStorefrontPreview()
+              ? ""
+              : "?storefront-preview=admin",
+          },
+          { replace: true },
+        );
+      }
+      window.requestAnimationFrame(() =>
+        focusPreviewLocation(location, requestId),
+      );
     };
     const handleMessage = (event: MessageEvent<unknown>) => {
       if (event.source !== window.parent) return;
@@ -218,11 +363,14 @@ function useStorefrontPreviewBridge(enabled: boolean) {
 
       if (event.data.type === storefrontPreviewLocationType) {
         if (!("location" in event.data)) return;
-        if (event.data.location !== "top" && event.data.location !== "footer")
+        if (
+          event.data.location !== "top" &&
+          event.data.location !== "catalog" &&
+          event.data.location !== "reviews" &&
+          event.data.location !== "footer"
+        )
           return;
-        document.documentElement.dataset.storefrontPreviewLocation =
-          event.data.location;
-        window.scrollTo({ top: 0, behavior: "auto" });
+        applyPreviewLocation(event.data.location);
         return;
       }
 
@@ -240,6 +388,16 @@ function useStorefrontPreviewBridge(enabled: boolean) {
 
       void queryClient.cancelQueries({ queryKey: ["storefront-settings"] });
       queryClient.setQueryData(["storefront-settings"], parsed.data);
+      const location =
+        document.documentElement.dataset.storefrontPreviewLocation;
+      if (
+        location === "top" ||
+        location === "catalog" ||
+        location === "reviews" ||
+        location === "footer"
+      ) {
+        window.requestAnimationFrame(() => applyPreviewLocation(location));
+      }
       sendToParent(storefrontPreviewAppliedType);
     };
     const preventPreviewNavigation = (event: MouseEvent) => {
@@ -249,18 +407,27 @@ function useStorefrontPreviewBridge(enabled: boolean) {
     };
 
     document.documentElement.dataset.storefrontPreview = "true";
-    document.documentElement.dataset.storefrontPreviewLocation = "top";
+    const currentLocation =
+      document.documentElement.dataset.storefrontPreviewLocation;
+    if (
+      currentLocation !== "top" &&
+      currentLocation !== "catalog" &&
+      currentLocation !== "reviews" &&
+      currentLocation !== "footer"
+    ) {
+      document.documentElement.dataset.storefrontPreviewLocation = "top";
+    }
     window.addEventListener("message", handleMessage);
     document.addEventListener("click", preventPreviewNavigation, true);
     sendToParent(storefrontPreviewReadyType);
 
     return () => {
+      previewFocusRequestRef.current += 1;
       delete document.documentElement.dataset.storefrontPreview;
-      delete document.documentElement.dataset.storefrontPreviewLocation;
       window.removeEventListener("message", handleMessage);
       document.removeEventListener("click", preventPreviewNavigation, true);
     };
-  }, [enabled, queryClient]);
+  }, [enabled, navigate, queryClient, route.pathname]);
 }
 
 function useStorefrontSynchronization(enabled = true) {
@@ -330,18 +497,23 @@ function BrandMark({
   const markRef = useRef<HTMLSpanElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  const previewMedia = useStorefrontPreviewMedia(logoUrl);
+  const resolvedLogoUrl = previewMedia.url;
   const canInspectPixels =
-    logoUrl.startsWith("data:") ||
-    logoUrl.startsWith("blob:") ||
-    logoUrl.includes("/uploads/");
+    resolvedLogoUrl.startsWith("data:") ||
+    resolvedLogoUrl.startsWith("blob:") ||
+    resolvedLogoUrl.includes("/uploads/");
 
   useEffect(() => {
     const mark = markRef.current;
-    const image = imageRef.current;
-    if (!mark || !image) return;
+    if (!mark) return;
 
-    setLoadFailed(false);
+    setLoadFailed(previewMedia.error);
     resetNormalizedLogo(mark);
+    if (previewMedia.loading || previewMedia.error) return;
+
+    const image = imageRef.current;
+    if (!image) return;
     const observer = new ResizeObserver(() =>
       updateNormalizedLogoLayout(image),
     );
@@ -354,7 +526,7 @@ function BrandMark({
       }
     }
     return () => observer.disconnect();
-  }, [canInspectPixels, logoUrl]);
+  }, [canInspectPixels, previewMedia.error, previewMedia.loading, resolvedLogoUrl]);
 
   if (!logoUrl) return null;
 
@@ -372,14 +544,16 @@ function BrandMark({
       data-logo-load={loadFailed ? "error" : "ready"}
       aria-hidden="true"
     >
-      <img
-        ref={imageRef}
-        alt=""
-        crossOrigin={canInspectPixels ? "anonymous" : undefined}
-        src={logoUrl}
-        onLoad={handleLoad}
-        onError={() => setLoadFailed(true)}
-      />
+      {resolvedLogoUrl ? (
+        <img
+          ref={imageRef}
+          alt=""
+          crossOrigin={canInspectPixels ? "anonymous" : undefined}
+          src={resolvedLogoUrl}
+          onLoad={handleLoad}
+          onError={() => setLoadFailed(true)}
+        />
+      ) : null}
       {loadFailed ? (
         <span className="brand__mark-fallback">{fallbackText}</span>
       ) : null}
@@ -390,9 +564,10 @@ function BrandMark({
 function FooterLinkItem({ link }: { link: FooterLink }) {
   const label = link.label.trim();
   const accessibleName = footerLinkAccessibleName(link);
+  const previewIcon = useStorefrontPreviewMedia(link.iconUrl);
   const content = (
     <>
-      {link.iconUrl ? <img src={link.iconUrl} alt="" /> : null}
+      {previewIcon.url ? <img src={previewIcon.url} alt="" /> : null}
       {label ? <span>{label}</span> : null}
     </>
   );
@@ -535,6 +710,24 @@ function Layout() {
   );
   const footerColor =
     storefront?.footerColor ?? storefront?.accentColor ?? "#c9a76d";
+  const headerBackground = storefront?.headerBackgroundColor ?? "#ffffff";
+  const headerForeground = storefront?.headerTextColor ?? "#090907";
+  const customHeaderButtons = storefront?.headerButtonMode === "custom";
+  const headerButtonBackground = customHeaderButtons
+    ? (storefront?.headerButtonBackgroundColor ?? headerForeground)
+    : headerForeground;
+  const headerButtonStyle = storefront?.headerButtonStyle ?? "solid";
+  const headerButtonForeground = customHeaderButtons
+    ? (storefront?.headerButtonTextColor ?? headerForeground)
+    : headerButtonStyle === "solid"
+      ? accessibleTextColor(
+          headerButtonBackground,
+          storefront?.headerButtonTextColor ?? headerBackground,
+        )
+      : accessibleTextColor(
+          headerBackground,
+          storefront?.headerButtonTextColor ?? headerForeground,
+        );
   const footerMotionVariants = getHomeMotionVariants({
     enabled: storefront?.homeMotionEnabled ?? true,
     preset:
@@ -547,6 +740,27 @@ function Layout() {
     ? ({
         "--color-brand-primary": storefront.primaryColor,
         "--color-brand-accent": storefront.accentColor,
+        "--color-header-background": headerBackground,
+        "--color-header-foreground": headerForeground,
+        "--color-header-accent": storefront.headerAccentColor,
+        "--color-header-button-background": headerButtonBackground,
+        "--color-header-button-foreground": headerButtonForeground,
+        "--header-font": storefrontTextFontValue(
+          storefront.headerFontFamily === "inherit" ||
+            storefront.headerFontFamily === "display" ||
+            storefront.headerFontFamily === "body"
+            ? "modern"
+            : (storefront.headerFontFamily ?? "modern"),
+        ),
+        "--header-nav-font-size": `${storefront.headerNavFontSize ?? 15}px`,
+        "--header-button-font-size": `${storefront.headerButtonFontSize ?? 15}px`,
+        "--header-height": `${storefront.headerHeight ?? 72}px`,
+        "--header-logo-width": `${storefront.headerLogoWidth ?? 300}px`,
+        "--header-button-radius": `${storefront.headerButtonRadius ?? 6}px`,
+        "--header-border-color": storefront.headerBorderColor ?? "#d8d1c5",
+        "--header-border-width": `${storefront.headerBorderWidth ?? 1}px`,
+        "--header-position":
+          storefront.headerSticky === false ? "relative" : "sticky",
         "--color-footer-background": footerColor,
         "--color-background": storefront.backgroundColor,
         "--color-home-surface-alt": storefront.homeAlternateColor ?? "#f3efe8",
@@ -646,6 +860,8 @@ function Layout() {
         Ir para o conteudo
       </a>
       <header
+        data-button-style={headerButtonStyle}
+        data-shadow={storefront?.headerShadow ?? "subtle"}
         className={
           scrolled ? "site-header site-header--scrolled" : "site-header"
         }
@@ -735,6 +951,7 @@ function Layout() {
             <Route path="/produto/:slug" element={<ProductPage />} />
             <Route path="/carrinho" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/checkout/pix" element={<PixPaymentPage />} />
             <Route path="/conta" element={<AccountPage />} />
             <Route path="/pedidos" element={<OrdersPage />} />
             <Route path="/suporte" element={<SupportPage />} />
@@ -958,6 +1175,9 @@ function HomePage() {
           divider={storefront.manifestoDivider ?? "line"}
           items={manifestoItems}
           maxWidth={storefront.manifestoMaxWidth ?? 880}
+          mobileDividerEnabled={
+            storefront.manifestoDividerMobileEnabled ?? false
+          }
           motionEnabled={motionEnabled}
           motionIntensity={motionIntensity}
           motionPreset={motionByBlock?.manifesto ?? legacyMotionPreset}
@@ -1000,6 +1220,8 @@ function HomePage() {
             storefront.homeTransitionStartColor ?? storefront.accentColor,
           "--home-transition-end":
             storefront.homeTransitionEndColor ?? "#faf8f4",
+          "--reviews-background": storefront.reviewsBackgroundColor,
+          "--reviews-card-background": storefront.reviewsCardColor,
           "--home-transition-overlap": `${
             transitionPreset === "none"
               ? 0
@@ -1010,7 +1232,9 @@ function HomePage() {
           }%`,
           "--home-transition-edge-strength": `${Math.min(
             8,
-            Math.max(2, (storefront.homeTransitionOpacity ?? 82) / 12),
+            storefront.homeTransitionOpacity === 0
+              ? 0
+              : Math.max(2, (storefront.homeTransitionOpacity ?? 82) / 12),
           )}%`,
         } as CSSProperties
       }
@@ -1045,6 +1269,17 @@ function HomePage() {
             </div>
           ))}
         </div>
+      ) : null}
+      {storefront.reviewsEnabled ? (
+        <ReviewsSection
+          eyebrow={storefront.reviewsEyebrow}
+          items={storefront.reviewsItems}
+          motionEnabled={motionEnabled}
+          motionIntensity={motionIntensity}
+          motionPreset={motionByBlock?.reviews ?? "soft"}
+          speedSeconds={storefront.reviewsSpeedSeconds}
+          title={storefront.reviewsTitle}
+        />
       ) : null}
     </div>
   );
@@ -1089,7 +1324,6 @@ function CatalogPreview({ storefront }: { storefront: StorefrontSettings }) {
           : products.data?.items.map((product, index) => (
               <ProductCard
                 addButtonLabel={storefront.featuredAddButtonLabel}
-                addedButtonLabel={storefront.featuredAddedButtonLabel}
                 product={product}
                 key={product.id}
                 homePreview
@@ -1256,257 +1490,308 @@ function CatalogPage() {
     Boolean(filter),
   );
   const activeFilterCount = activeFilters.length;
+  const catalogButtonBackground =
+    storefront?.catalogButtonBackgroundColor ?? "#090907";
+  const catalogButtonForeground =
+    storefront?.catalogButtonTextColor ?? "#ffffff";
+  const catalogStyle = storefront
+    ? ({
+        "--catalog-background": storefront.catalogBackgroundColor,
+        "--catalog-surface": storefront.catalogSurfaceColor,
+        "--catalog-text": storefront.catalogTextColor,
+        "--catalog-text-secondary": storefront.catalogSecondaryTextColor,
+        "--catalog-accent": storefront.catalogAccentColor,
+        "--catalog-border": storefront.catalogBorderColor,
+        "--catalog-button-background": catalogButtonBackground,
+        "--catalog-button-foreground": catalogButtonForeground,
+        "--catalog-card-radius": `${storefront.catalogCardRadius}px`,
+        "--catalog-columns-desktop": storefront.catalogColumnsDesktop,
+        "--catalog-columns-tablet": storefront.catalogColumnsTablet,
+        "--catalog-columns-mobile": storefront.catalogColumnsMobile,
+        ...catalogTextVariables(storefront),
+      } as CSSProperties)
+    : undefined;
 
   return (
-    <section
-      className={`catalog-layout catalog-layout--infinite ${filtersCollapsed ? "catalog-layout--filters-collapsed" : ""}`}
+    <div
+      className="catalog-page"
+      data-catalog-density={storefront?.catalogDensity ?? "comfortable"}
+      data-card-style={storefront?.catalogCardStyle ?? "boutique"}
+      data-image-fit={storefront?.catalogImageFit ?? "contain"}
+      data-image-ratio={storefront?.catalogImageRatio ?? "square"}
+      data-button-style={storefront?.catalogButtonStyle ?? "solid"}
+      style={catalogStyle}
     >
-      <AnimatePresence initial={false} mode="popLayout">
-        {filtersCollapsed ? (
-          <motion.button
-            animate="visible"
-            className={
-              activeFilterCount
-                ? "filters-rail filters-rail--active"
-                : "filters-rail"
-            }
-            exit="hidden"
-            initial="hidden"
-            key="filters-rail"
-            layout
-            type="button"
-            variants={fadeInVariants}
-            onClick={() => {
-              filterReturnFocusRef.current = filterButtonRef.current;
-              setFiltersCollapsed(false);
-              if (isMobileFilters) setFiltersOpen(true);
-            }}
-          >
-            <PanelLeftOpen size={18} />
-            <span>Filtros</span>
-            {activeFilterCount ? <small>{activeFilterCount}</small> : null}
-          </motion.button>
-        ) : !isMobileFilters || filtersOpen ? (
-          <motion.aside
-            ref={filterDrawerRef}
-            animate="open"
-            aria-label="Filtros do catalogo"
-            aria-modal={isMobileFilters || undefined}
-            className={filtersOpen ? "filters filters--open" : "filters"}
-            exit="closed"
-            initial={isMobileFilters ? "closed" : false}
-            key="filters-panel"
-            layout
-            role={isMobileFilters ? "dialog" : undefined}
-            variants={drawerVariants}
-          >
-            <div className="filters__header">
-              <h1>Catalogo</h1>
-              <div className="filters__header-actions">
-                <IconButton
-                  label="Ocultar filtros"
-                  className="filters__collapse"
-                  onClick={() => {
-                    setFiltersOpen(false);
-                    setFiltersCollapsed(true);
-                  }}
-                >
-                  <PanelLeftClose size={18} />
-                </IconButton>
-                <IconButton
-                  ref={filterCloseRef}
-                  label="Fechar filtros"
-                  className="filters__close"
-                  onClick={() => setFiltersOpen(false)}
-                >
-                  <X size={18} />
-                </IconButton>
-              </div>
-            </div>
-            <TextField
-              label="Buscar"
-              value={params.get("search") ?? ""}
-              onChange={(event) => updateParam("search", event.target.value)}
-              placeholder="Produto, SKU ou tag"
-            />
-            <SelectField
-              label="Categoria"
-              value={params.get("category") ?? ""}
-              onChange={(event) => updateParam("category", event.target.value)}
-            >
-              <option value="">Todas</option>
-              {(categories.data?.items ?? []).map((category) => (
-                <option value={category.slug} key={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </SelectField>
-            {categories.isError ? (
-              <p className="filters__field-error" role="alert">
-                Categorias indisponiveis no momento.
-              </p>
-            ) : null}
-            <SelectField
-              label="Ordenacao"
-              value={params.get("sort") ?? "featured"}
-              onChange={(event) => updateParam("sort", event.target.value)}
-            >
-              <option value="featured">Destaques</option>
-              <option value="price_asc">Menor preco</option>
-              <option value="price_desc">Maior preco</option>
-              <option value="newest">Recentes</option>
-            </SelectField>
-            <div className="active-filters" aria-live="polite">
-              <div className="active-filters__header">
-                <span>
-                  {activeFilterCount ? "Filtros ativos" : "Sem filtros ativos"}
-                </span>
-                {activeFilterCount ? (
-                  <button type="button" onClick={clearFilters}>
-                    Limpar filtros
-                  </button>
-                ) : null}
-              </div>
-              {activeFilterCount ? (
-                <div className="active-filters__list">
-                  {activeFilters.map((filter) => (
-                    <button
-                      type="button"
-                      key={filter.key}
-                      onClick={() => updateParam(filter.key, "")}
-                    >
-                      {filter.label}
-                      <X size={14} />
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="filters__hint">
-                  Use busca, categoria ou ordenacao para refinar o catalogo.
-                </p>
-              )}
-            </div>
-            <Button
+      <header className="catalog-intro">
+        <div>
+          {storefront?.catalogEyebrow?.trim() ? (
+            <p>{storefront.catalogEyebrow}</p>
+          ) : null}
+          <h1>{storefront?.catalogTitle ?? "Catalogo"}</h1>
+        </div>
+        {storefront?.catalogDescription?.trim() ? (
+          <p className="catalog-intro__description">
+            {storefront.catalogDescription}
+          </p>
+        ) : null}
+      </header>
+      <section
+        className={`catalog-layout catalog-layout--infinite ${filtersCollapsed ? "catalog-layout--filters-collapsed" : ""}`}
+        aria-label="Produtos do catalogo"
+      >
+        <AnimatePresence initial={false} mode="popLayout">
+          {filtersCollapsed ? (
+            <motion.button
+              animate="visible"
+              className={
+                activeFilterCount
+                  ? "filters-rail filters-rail--active"
+                  : "filters-rail"
+              }
+              exit="hidden"
+              initial="hidden"
+              key="filters-rail"
+              layout
               type="button"
-              variant="ghost"
-              className="filters__done"
+              variants={fadeInVariants}
               onClick={() => {
-                setFiltersOpen(false);
-                setFiltersCollapsed(true);
+                filterReturnFocusRef.current = filterButtonRef.current;
+                setFiltersCollapsed(false);
+                if (isMobileFilters) setFiltersOpen(true);
               }}
             >
-              <PanelLeftClose size={16} />
-              Ocultar filtros
-            </Button>
-          </motion.aside>
-        ) : null}
-      </AnimatePresence>
-      <div className="catalog-results">
-        <div className="catalog-toolbar">
-          <div>
-            <p>Loja {storefront?.brandName ?? ""}</p>
-            <h1>Catalogo</h1>
-          </div>
-          <IconButton
-            ref={filterButtonRef}
-            label="Abrir filtros"
-            className={
-              activeFilterCount
-                ? "filters-button filters-button--active"
-                : "filters-button"
-            }
-            onClick={() => {
-              filterReturnFocusRef.current = filterButtonRef.current;
-              setFiltersCollapsed(false);
-              setFiltersOpen(true);
-            }}
-          >
-            <SlidersHorizontal size={20} />
-            {activeFilterCount ? <span>{activeFilterCount}</span> : null}
-          </IconButton>
-        </div>
-        {activeFilterCount ? (
-          <div className="catalog-active-filters" aria-live="polite">
-            <div className="active-filters__list">
-              {activeFilters.map((filter) => (
-                <button
-                  type="button"
-                  key={filter.key}
-                  onClick={() => updateParam(filter.key, "")}
-                >
-                  {filter.label}
-                  <X size={14} />
-                </button>
-              ))}
-            </div>
-            <button type="button" onClick={clearFilters}>
-              Limpar filtros
-            </button>
-          </div>
-        ) : null}
-        {query.isError ? (
-          <EmptyState
-            title="Nao foi possivel carregar"
-            body="Verifique a conexao com a API e tente novamente."
-            action={
-              <Button onClick={() => query.refetch()}>Tentar novamente</Button>
-            }
-          />
-        ) : null}
-        <motion.div
-          className="product-grid infinite-feed"
-          aria-live="polite"
-          layout
-        >
-          {query.isLoading
-            ? Array.from({ length: 8 }, (_, index) => (
-                <ProductSkeleton key={index} />
-              ))
-            : null}
-          <AnimatePresence initial={false}>
-            {products.map((product, index) => (
-              <ProductCard
-                addButtonLabel={
-                  storefront?.featuredAddButtonLabel ?? "Adicionar"
-                }
-                addedButtonLabel={
-                  storefront?.featuredAddedButtonLabel ?? "Adicionado"
-                }
-                product={product}
-                key={product.id}
-                revealOrder={index % 4}
-              />
-            ))}
-          </AnimatePresence>
-        </motion.div>
-        {!query.isLoading && products.length === 0 ? (
-          <EmptyState
-            title="Nada encontrado"
-            body="Ajuste os filtros para ver outras opcoes."
-          />
-        ) : null}
-        <div ref={loadMoreRef} className="load-more">
-          {query.hasNextPage ? (
-            <Button
-              variant="secondary"
-              loading={query.isFetchingNextPage}
-              onClick={() => query.fetchNextPage()}
+              <PanelLeftOpen size={18} />
+              <span>Filtros</span>
+              {activeFilterCount ? <small>{activeFilterCount}</small> : null}
+            </motion.button>
+          ) : !isMobileFilters || filtersOpen ? (
+            <motion.aside
+              ref={filterDrawerRef}
+              animate="open"
+              aria-label="Filtros do catalogo"
+              aria-modal={isMobileFilters || undefined}
+              className={filtersOpen ? "filters filters--open" : "filters"}
+              exit="closed"
+              initial={isMobileFilters ? "closed" : false}
+              key="filters-panel"
+              layout
+              role={isMobileFilters ? "dialog" : undefined}
+              variants={drawerVariants}
             >
-              Carregar mais
-            </Button>
-          ) : products.length > 0 ? (
-            <p>Todos os produtos foram carregados.</p>
+              <div className="filters__header">
+                <h2>Filtros</h2>
+                <div className="filters__header-actions">
+                  <IconButton
+                    label="Ocultar filtros"
+                    className="filters__collapse"
+                    onClick={() => {
+                      setFiltersOpen(false);
+                      setFiltersCollapsed(true);
+                    }}
+                  >
+                    <PanelLeftClose size={18} />
+                  </IconButton>
+                  <IconButton
+                    ref={filterCloseRef}
+                    label="Fechar filtros"
+                    className="filters__close"
+                    onClick={() => setFiltersOpen(false)}
+                  >
+                    <X size={18} />
+                  </IconButton>
+                </div>
+              </div>
+              <TextField
+                label="Buscar"
+                value={params.get("search") ?? ""}
+                onChange={(event) => updateParam("search", event.target.value)}
+                placeholder="Produto, SKU ou tag"
+              />
+              <SelectField
+                label="Categoria"
+                value={params.get("category") ?? ""}
+                onChange={(event) =>
+                  updateParam("category", event.target.value)
+                }
+              >
+                <option value="">Todas</option>
+                {(categories.data?.items ?? []).map((category) => (
+                  <option value={category.slug} key={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </SelectField>
+              {categories.isError ? (
+                <p className="filters__field-error" role="alert">
+                  Categorias indisponiveis no momento.
+                </p>
+              ) : null}
+              <SelectField
+                label="Ordenacao"
+                value={params.get("sort") ?? "featured"}
+                onChange={(event) => updateParam("sort", event.target.value)}
+              >
+                <option value="featured">Destaques</option>
+                <option value="price_asc">Menor preco</option>
+                <option value="price_desc">Maior preco</option>
+                <option value="newest">Recentes</option>
+              </SelectField>
+              <div className="active-filters" aria-live="polite">
+                <div className="active-filters__header">
+                  <span>
+                    {activeFilterCount
+                      ? "Filtros ativos"
+                      : "Sem filtros ativos"}
+                  </span>
+                  {activeFilterCount ? (
+                    <button type="button" onClick={clearFilters}>
+                      Limpar filtros
+                    </button>
+                  ) : null}
+                </div>
+                {activeFilterCount ? (
+                  <div className="active-filters__list">
+                    {activeFilters.map((filter) => (
+                      <button
+                        type="button"
+                        key={filter.key}
+                        onClick={() => updateParam(filter.key, "")}
+                      >
+                        {filter.label}
+                        <X size={14} />
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="filters__hint">
+                    Use busca, categoria ou ordenacao para refinar o catalogo.
+                  </p>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                className="filters__done"
+                onClick={() => {
+                  setFiltersOpen(false);
+                  setFiltersCollapsed(true);
+                }}
+              >
+                <PanelLeftClose size={16} />
+                Ocultar filtros
+              </Button>
+            </motion.aside>
           ) : null}
+        </AnimatePresence>
+        <div className="catalog-results">
+          <div className="catalog-toolbar">
+            <div>
+              <p aria-live="polite">
+                {query.isLoading
+                  ? "Carregando produtos"
+                  : `${products.length} ${products.length === 1 ? "produto carregado" : "produtos carregados"}`}
+              </p>
+              <h2>Produtos</h2>
+            </div>
+            <IconButton
+              ref={filterButtonRef}
+              label="Abrir filtros"
+              className={
+                activeFilterCount
+                  ? "filters-button filters-button--active"
+                  : "filters-button"
+              }
+              onClick={() => {
+                filterReturnFocusRef.current = filterButtonRef.current;
+                setFiltersCollapsed(false);
+                setFiltersOpen(true);
+              }}
+            >
+              <SlidersHorizontal size={20} />
+              {activeFilterCount ? <span>{activeFilterCount}</span> : null}
+            </IconButton>
+          </div>
+          {activeFilterCount ? (
+            <div className="catalog-active-filters" aria-live="polite">
+              <div className="active-filters__list">
+                {activeFilters.map((filter) => (
+                  <button
+                    type="button"
+                    key={filter.key}
+                    onClick={() => updateParam(filter.key, "")}
+                  >
+                    {filter.label}
+                    <X size={14} />
+                  </button>
+                ))}
+              </div>
+              <button type="button" onClick={clearFilters}>
+                Limpar filtros
+              </button>
+            </div>
+          ) : null}
+          {query.isError ? (
+            <EmptyState
+              title="Nao foi possivel carregar"
+              body="Verifique a conexao com a API e tente novamente."
+              action={
+                <Button onClick={() => query.refetch()}>
+                  Tentar novamente
+                </Button>
+              }
+            />
+          ) : null}
+          <motion.div
+            className="product-grid infinite-feed"
+            aria-live="polite"
+            layout
+          >
+            {query.isLoading
+              ? Array.from({ length: 8 }, (_, index) => (
+                  <ProductSkeleton key={index} />
+                ))
+              : null}
+            <AnimatePresence initial={false}>
+              {products.map((product, index) => (
+                <ProductCard
+                  addButtonLabel={
+                    storefront?.featuredAddButtonLabel ?? "Adicionar"
+                  }
+                  product={product}
+                  key={product.id}
+                  revealOrder={index % 4}
+                />
+              ))}
+            </AnimatePresence>
+          </motion.div>
+          {!query.isLoading && products.length === 0 ? (
+            <EmptyState
+              title="Nada encontrado"
+              body="Ajuste os filtros para ver outras opcoes."
+            />
+          ) : null}
+          <div ref={loadMoreRef} className="load-more">
+            {query.hasNextPage ? (
+              <Button
+                variant="secondary"
+                loading={query.isFetchingNextPage}
+                onClick={() => query.fetchNextPage()}
+              >
+                Carregar mais
+              </Button>
+            ) : products.length > 0 ? (
+              <p>Todos os produtos foram carregados.</p>
+            ) : null}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }
 
 function ProductCard({
   product,
   addButtonLabel = "Adicionar",
-  addedButtonLabel = "Adicionado",
   homePreview = false,
   revealOrder = 0,
   homeMotionEnabled = true,
@@ -1515,22 +1800,21 @@ function ProductCard({
 }: {
   product: Product;
   addButtonLabel?: string;
-  addedButtonLabel?: string;
   homePreview?: boolean;
   revealOrder?: number;
   homeMotionEnabled?: boolean;
   homeMotionPreset?: StorefrontSettings["homeMotionPreset"];
   homeMotionIntensity?: StorefrontSettings["homeMotionIntensity"];
 }) {
+  const navigate = useNavigate();
   const add = useCartStore((state) => state.add);
   const reducedMotion = useReducedMotion();
-  const [justAdded, setJustAdded] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
-  const feedbackTimerRef = useRef<number>();
   const lowStock =
     product.lowStockWarningEnabled &&
     product.stock <= product.lowStockThreshold;
   const primaryImage = product.images[0]!;
+  const previewImage = useStorefrontPreviewMedia(primaryImage.url);
   const homeMotionVariants = getHomeMotionVariants({
     enabled: homeMotionEnabled,
     preset: homeMotionPreset,
@@ -1538,24 +1822,12 @@ function ProductCard({
   });
 
   useEffect(() => {
-    return () => {
-      if (feedbackTimerRef.current)
-        window.clearTimeout(feedbackTimerRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    setImageFailed(false);
-  }, [primaryImage.url]);
+    setImageFailed(previewImage.error);
+  }, [previewImage.error, primaryImage.url]);
 
   function handleAdd() {
     add(productToCart(product));
-    setJustAdded(true);
-    if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
-    feedbackTimerRef.current = window.setTimeout(
-      () => setJustAdded(false),
-      2000,
-    );
+    navigate("/carrinho");
   }
 
   return (
@@ -1592,15 +1864,15 @@ function ProductCard({
             <ImageOff aria-hidden="true" size={24} />
             <span>Imagem indisponivel</span>
           </span>
-        ) : (
+        ) : previewImage.url ? (
           <img
             alt={primaryImage.alt}
             decoding="async"
             loading="lazy"
             onError={() => setImageFailed(true)}
-            src={primaryImage.url}
+            src={previewImage.url}
           />
-        )}
+        ) : null}
       </Link>
       <div className="product-card__body">
         <div className="product-card__content">
@@ -1613,7 +1885,9 @@ function ProductCard({
           <h2>
             <Link to={`/produto/${product.slug}`}>{product.name}</Link>
           </h2>
-          <p className="product-card__description">{product.description}</p>
+          <p className="product-card__description">
+            {formatProductCardDescription(product.description)}
+          </p>
         </div>
         <div className="product-card__footer">
           <div className="product-card__price">
@@ -1622,24 +1896,12 @@ function ProductCard({
           </div>
           <Button
             type="button"
-            className={
-              justAdded
-                ? "product-card__button product-card__button--added"
-                : "product-card__button"
-            }
-            aria-label={
-              justAdded
-                ? `${product.name} adicionado ao carrinho`
-                : `Adicionar ${product.name} ao carrinho`
-            }
+            className="product-card__button"
+            aria-label={`Adicionar ${product.name} ao carrinho`}
             onClick={handleAdd}
           >
-            {justAdded ? (
-              <CheckCircle2 aria-hidden="true" size={16} />
-            ) : (
-              <ShoppingBag aria-hidden="true" size={16} />
-            )}
-            {justAdded ? addedButtonLabel : addButtonLabel}
+            <ShoppingBag aria-hidden="true" size={16} />
+            {addButtonLabel}
           </Button>
         </div>
       </div>
@@ -1662,6 +1924,7 @@ function ProductSkeleton() {
 
 function ProductPage() {
   const { slug = "" } = useParams();
+  const navigate = useNavigate();
   const add = useCartStore((state) => state.add);
   const {
     data: product,
@@ -1718,7 +1981,12 @@ function ProductPage() {
         <p>{product.description}</p>
         <strong>{formatMoney(product.priceInCents)}</strong>
         <div className="detail-actions">
-          <Button onClick={() => add(productToCart(product))}>
+          <Button
+            onClick={() => {
+              add(productToCart(product));
+              navigate("/carrinho");
+            }}
+          >
             Adicionar ao carrinho
           </Button>
           <Link className="store-button store-button--secondary" to="/carrinho">
@@ -1889,10 +2157,23 @@ function CartPage() {
 }
 
 function CheckoutPage() {
+  const navigate = useNavigate();
   const items = useCartStore((state) => state.items);
   const { data: storefront } = useStorefrontSettingsQuery();
   const [customer, setCustomer] = useState({ name: "", email: "", phone: "" });
   const [shippingAcknowledged, setShippingAcknowledged] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<
+    "pix_manual" | "mercado_pago" | null
+  >(null);
+  const [pixOperationId] = useState(() => crypto.randomUUID());
+  const paymentMethods = useQuery({
+    queryKey: ["checkout-payment-methods"],
+    queryFn: getPaymentMethods,
+    staleTime: 30_000,
+  });
+  const selectedPaymentMethod =
+    paymentMethod ??
+    (paymentMethods.data?.pixManualEnabled ? "pix_manual" : "mercado_pago");
   const cartInput = useMemo(
     () =>
       items.map((item) => ({ productId: item.id, quantity: item.quantity })),
@@ -1917,6 +2198,19 @@ function CheckoutPage() {
     onSuccess(data) {
       rememberCheckoutAccess(data.orderReference, data.checkoutAccessToken);
       window.location.assign(data.checkoutUrl);
+    },
+  });
+  const pixCheckout = useMutation({
+    mutationFn: () =>
+      createPixCheckout({
+        operationId: pixOperationId,
+        customer,
+        shippingAcknowledged: true,
+        items: cartInput,
+      }),
+    onSuccess(data) {
+      rememberCheckoutAccess(data.orderReference, data.checkoutAccessToken);
+      navigate(`/checkout/pix?order=${encodeURIComponent(data.orderReference)}`);
     },
   });
 
@@ -1954,6 +2248,10 @@ function CheckoutPage() {
           onSubmit={(event) => {
             event.preventDefault();
             if (!shippingAcknowledged) return;
+            if (selectedPaymentMethod === "pix_manual") {
+              pixCheckout.mutate();
+              return;
+            }
             checkout.mutate();
           }}
         >
@@ -2022,16 +2320,76 @@ function CheckoutPage() {
               <div>
                 <h2 id="checkout-payment">Pagamento</h2>
                 <p>
-                  Voce sera redirecionado para concluir o pagamento em ambiente
-                  seguro.
+                  Escolha Pix para gerar o QR Code agora ou siga para o ambiente
+                  seguro do Mercado Pago.
                 </p>
               </div>
             </div>
+            {paymentMethods.isLoading ? (
+              <p className="checkout-payment-loading" aria-live="polite">
+                Consultando formas de pagamento...
+              </p>
+            ) : (
+              <fieldset className="checkout-payment-methods">
+                <legend>Como deseja pagar?</legend>
+                {paymentMethods.data?.pixManualEnabled ? (
+                  <label
+                    className={
+                      selectedPaymentMethod === "pix_manual"
+                        ? "checkout-payment-option is-selected"
+                        : "checkout-payment-option"
+                    }
+                  >
+                    <input
+                      checked={selectedPaymentMethod === "pix_manual"}
+                      name="payment-method"
+                      onChange={() => setPaymentMethod("pix_manual")}
+                      type="radio"
+                      value="pix_manual"
+                    />
+                    <QrCode aria-hidden="true" size={22} />
+                    <span>
+                      <strong>Pagar via Pix automaticamente</strong>
+                      <small>
+                        QR Code e copia e cola gerados agora. A loja confirma o
+                        pagamento apos receber o comprovante.
+                      </small>
+                    </span>
+                  </label>
+                ) : null}
+                <label
+                  className={
+                    selectedPaymentMethod === "mercado_pago"
+                      ? "checkout-payment-option is-selected"
+                      : "checkout-payment-option"
+                  }
+                >
+                  <input
+                    checked={selectedPaymentMethod === "mercado_pago"}
+                    name="payment-method"
+                    onChange={() => setPaymentMethod("mercado_pago")}
+                    type="radio"
+                    value="mercado_pago"
+                  />
+                  <CreditCard aria-hidden="true" size={22} />
+                  <span>
+                    <strong>Pagar com cartao via Mercado Pago</strong>
+                    <small>
+                      Finalize o pagamento no ambiente protegido do Mercado
+                      Pago.
+                    </small>
+                  </span>
+                </label>
+              </fieldset>
+            )}
             {whatsapp.isError ? (
               <p className="error-text">{whatsapp.error.message}</p>
             ) : null}
             {checkout.isError ? (
               <p className="error-text">{checkout.error.message}</p>
+            ) : null}
+            {pixCheckout.isError ? (
+              <p className="error-text">{pixCheckout.error.message}</p>
             ) : null}
             <label className="checkout-acknowledgement">
               <input
@@ -2049,10 +2407,18 @@ function CheckoutPage() {
             <div className="checkout-actions">
               <Button
                 type="submit"
-                disabled={!shippingAcknowledged}
-                loading={checkout.isPending}
+                disabled={!shippingAcknowledged || paymentMethods.isLoading}
+                loading={checkout.isPending || pixCheckout.isPending}
               >
-                Continuar para pagamento seguro
+                {selectedPaymentMethod === "pix_manual" ? (
+                  <>
+                    <QrCode size={16} /> Gerar Pix e continuar
+                  </>
+                ) : (
+                  <>
+                    <CreditCard size={16} /> Ir para o Mercado Pago
+                  </>
+                )}
               </Button>
               <Button
                 type="button"
@@ -2109,16 +2475,181 @@ function CheckoutPage() {
             <dd>A combinar pelo WhatsApp</dd>
           </div>
           <div>
-            <dt>Total pago no Mercado Pago</dt>
+            <dt>Total dos produtos</dt>
             <dd>{formatMoney(subtotalInCents)}</dd>
           </div>
         </dl>
         <ul className="checkout-reassurance" aria-label="Garantias do checkout">
-          <li>Pagamento protegido fora do catalogo.</li>
+          <li>O valor e conferido novamente pela loja antes de gerar o pagamento.</li>
           <li>O pagamento inclui somente produtos e descontos aplicaveis.</li>
           <li>O frete ou a retirada sera combinado depois pelo WhatsApp.</li>
         </ul>
       </aside>
+    </section>
+  );
+}
+
+function PixPaymentPage() {
+  const [searchParams] = useSearchParams();
+  const orderReference = searchParams.get("order") ?? "";
+  const token = recallCheckoutAccess(orderReference) ?? "";
+  const clear = useCartStore((state) => state.clear);
+  const [copied, setCopied] = useState(false);
+  const copyFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const payment = useQuery({
+    queryKey: ["pix-payment", orderReference, token],
+    queryFn: () => getPixPayment(orderReference, token),
+    enabled: Boolean(orderReference && token),
+    refetchInterval: (query) =>
+      query.state.data?.status === "pending_confirmation" ? 5_000 : false,
+    retry: 1,
+  });
+  const whatsappOpen = useMutation({
+    mutationFn: () => recordPixWhatsappOpen(orderReference, token),
+  });
+
+  useEffect(() => {
+    if (payment.data) clear();
+  }, [clear, payment.data]);
+
+  useEffect(
+    () => () => {
+      if (copyFeedbackTimer.current) clearTimeout(copyFeedbackTimer.current);
+    },
+    [],
+  );
+
+  async function copyPixCode() {
+    if (!payment.data?.pixCode) return;
+    await copyText(payment.data.pixCode);
+    setCopied(true);
+    if (copyFeedbackTimer.current) clearTimeout(copyFeedbackTimer.current);
+    copyFeedbackTimer.current = setTimeout(() => setCopied(false), 2_500);
+  }
+
+  function openWhatsapp() {
+    if (!payment.data?.whatsappUrl) return;
+    whatsappOpen.mutate();
+    window.open(payment.data.whatsappUrl, "_blank", "noopener,noreferrer");
+  }
+
+  if (!orderReference || !token) {
+    return (
+      <InfoPanel
+        icon={<QrCode />}
+        title="Pagamento Pix nao encontrado"
+        body="Volte ao carrinho e gere um novo pagamento para continuar com seguranca."
+      />
+    );
+  }
+
+  if (payment.isLoading) {
+    return (
+      <section className="pix-payment-page" aria-live="polite">
+        <Skeleton className="pix-payment-skeleton" />
+      </section>
+    );
+  }
+
+  if (payment.isError || !payment.data) {
+    return (
+      <InfoPanel
+        icon={<QrCode />}
+        title="Nao foi possivel carregar o Pix"
+        body="O pedido continua protegido. Tente consultar os dados novamente."
+        action={<Button onClick={() => payment.refetch()}>Tentar novamente</Button>}
+      />
+    );
+  }
+
+  const approved = payment.data.status === "approved";
+  const rejected = payment.data.status === "rejected";
+
+  return (
+    <section className="pix-payment-page">
+      <header className="pix-payment-heading">
+        <p>Pedido {payment.data.orderReference}</p>
+        <h1>Pagamento via Pix</h1>
+        <p>
+          Escaneie o QR Code ou copie o codigo. Depois, envie o comprovante para
+          a loja confirmar o pagamento.
+        </p>
+      </header>
+
+      <div className="pix-payment-layout">
+        <article className="pix-payment-card">
+          <div className="pix-payment-qr">
+            <img
+              alt={`QR Code Pix do pedido ${payment.data.orderReference}`}
+              height="360"
+              src={payment.data.qrCodeDataUrl}
+              width="360"
+            />
+          </div>
+          <div className="pix-payment-amount">
+            <span>Valor dos produtos</span>
+            <strong>{formatMoney(payment.data.amountInCents)}</strong>
+          </div>
+          <label className="pix-copy-field">
+            <span>Pix copia e cola</span>
+            <textarea readOnly rows={3} value={payment.data.pixCode} />
+          </label>
+          <Button onClick={copyPixCode} type="button">
+            {copied ? <CheckCircle2 size={18} /> : <Copy size={18} />}
+            {copied ? "Pix copiado!" : "Copiar codigo Pix"}
+          </Button>
+          <span className="sr-only" aria-live="polite">
+            {copied ? "Codigo Pix copiado para a area de transferencia." : ""}
+          </span>
+        </article>
+
+        <aside className="pix-payment-instructions">
+          <div
+            className={`pix-payment-status${approved ? " is-approved" : ""}${
+              rejected ? " is-rejected" : ""
+            }`}
+            role="status"
+          >
+            {approved ? <CheckCircle2 size={22} /> : <Clock3 size={22} />}
+            <div>
+              <strong>
+                {approved
+                  ? "Pagamento confirmado"
+                  : rejected
+                    ? "Pagamento nao confirmado"
+                    : "Aguardando confirmacao da loja"}
+              </strong>
+              <span>
+                {approved
+                  ? "A loja ja registrou o recebimento do Pix."
+                  : rejected
+                    ? "Fale com a loja para revisar o comprovante ou refazer o pedido."
+                    : "A confirmacao e manual e pode levar alguns minutos apos o envio do comprovante."}
+              </span>
+            </div>
+          </div>
+          <ol>
+            <li>Abra o aplicativo do seu banco.</li>
+            <li>Escolha pagar via Pix e use o QR Code ou o copia e cola.</li>
+            <li>Confira o valor antes de concluir.</li>
+            <li>Envie o comprovante pelo WhatsApp abaixo.</li>
+          </ol>
+          <Button
+            loading={whatsappOpen.isPending}
+            onClick={openWhatsapp}
+            type="button"
+            variant="secondary"
+          >
+            <MessageCircle size={18} /> Enviar comprovante pelo WhatsApp
+          </Button>
+          {whatsappOpen.isError ? (
+            <p className="error-text">Nao foi possivel registrar o acesso ao WhatsApp.</p>
+          ) : null}
+          <p className="shipping-note">
+            Frete ou retirada continuam a combinar diretamente com a loja.
+          </p>
+        </aside>
+      </div>
     </section>
   );
 }
@@ -2201,7 +2732,6 @@ function CheckoutReturnPage() {
   });
   const { orderReference, token } = checkoutAccess;
   const clear = useCartStore((state) => state.clear);
-  const autoOpenAttempted = useRef(false);
   const status = useQuery({
     queryKey: ["checkout-status", orderReference, token],
     queryFn: () => getCheckoutStatus(orderReference, token),
@@ -2228,20 +2758,6 @@ function CheckoutReturnPage() {
   useEffect(() => {
     if (status.data?.paymentStatus === "approved") clear();
   }, [clear, status.data?.paymentStatus]);
-
-  useEffect(() => {
-    if (
-      status.data?.paymentStatus !== "approved" ||
-      !status.data.whatsappUrl ||
-      autoOpenAttempted.current
-    ) {
-      return;
-    }
-    autoOpenAttempted.current = true;
-    void recordCheckoutWhatsappOpen(orderReference, token).finally(() => {
-      window.open(status.data!.whatsappUrl!, "_blank", "noopener,noreferrer");
-    });
-  }, [orderReference, status.data, token]);
 
   async function openWhatsapp() {
     if (!status.data?.whatsappUrl) return;

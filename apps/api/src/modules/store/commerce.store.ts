@@ -3,22 +3,26 @@ import { dirname, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import type {
   AdminCategoryInput,
+  AdminOrderArchiveInput,
   AdminOrderUpdate,
   AdminProductInput,
   AdminProductRow,
   Category,
   OrderSummary,
+  PixSettings,
   PaymentStatus,
   PricedCart,
   Product,
   StorefrontSettings,
 } from "@bespoke/contracts";
 import {
+  defaultCatalogTextStyles,
   defaultFooterLinks,
   defaultHomeMotionByBlock,
   defaultHomeSections,
   defaultManifestoItems,
   defaultStorefrontTextStyles,
+  pixSettingsSchema,
   storefrontSettingsSchema,
 } from "@bespoke/contracts";
 import {
@@ -31,7 +35,15 @@ export type StoredOrder = OrderSummary & {
   mercadoPagoPreferenceId?: string | null;
   checkoutUrl?: string | null;
   providerPaymentId?: string | null;
+  pixPayload?: string | null;
 };
+
+export type PixOrderCreationResult = {
+  order: StoredOrder;
+  reused: boolean;
+};
+
+export type OrdersQuery = { archived?: boolean };
 
 type CommerceState = {
   categories: Category[];
@@ -40,6 +52,8 @@ type CommerceState = {
   checkoutAccess: Record<string, string>;
   webhookEvents: string[];
   storefront: StorefrontSettings;
+  pixSettings: PixSettings;
+  pixIdempotency: Record<string, string>;
 };
 
 export type PaymentUpdateResult = "processed" | "duplicate" | "ignored";
@@ -64,6 +78,15 @@ export interface CommerceStoreAdapter {
     customer: { name: string; email: string; phone: string };
     priced: PricedCart;
   }): MaybePromise<StoredOrder>;
+  createPixOrder(input: {
+    orderReference: string;
+    operationId: string;
+    requestHash: string;
+    checkoutAccessTokenHash: string;
+    customer: { name: string; email: string; phone: string };
+    priced: PricedCart;
+    pixPayload: string;
+  }): MaybePromise<PixOrderCreationResult>;
   attachMercadoPagoPreference(
     orderReference: string,
     preferenceId: string | null,
@@ -89,14 +112,36 @@ export interface CommerceStoreAdapter {
     orderReference: string,
     checkoutAccessTokenHash: string,
   ): MaybePromise<boolean>;
+  recordPixWhatsappOpen(
+    orderReference: string,
+    checkoutAccessTokenHash: string,
+  ): MaybePromise<boolean>;
+  setPixPaymentStatus(
+    orderReference: string,
+    status: "approved" | "rejected",
+  ): MaybePromise<StoredOrder>;
   updateOrder(
     orderReference: string,
     input: AdminOrderUpdate,
   ): MaybePromise<StoredOrder>;
-  orders(): MaybePromise<StoredOrder[]>;
+  setWhatsappRevenueConfirmed(
+    orderReference: string,
+    confirmed: boolean,
+  ): MaybePromise<StoredOrder>;
+  setOrdersArchived(input: AdminOrderArchiveInput): MaybePromise<number>;
+  orders(query?: OrdersQuery): MaybePromise<StoredOrder[]>;
   storefront(): MaybePromise<StorefrontSettings>;
   updateStorefront(input: StorefrontSettings): MaybePromise<StorefrontSettings>;
+  pixSettings(): MaybePromise<PixSettings>;
+  updatePixSettings(input: PixSettings): MaybePromise<PixSettings>;
 }
+
+export const defaultPixSettings: PixSettings = {
+  enabled: false,
+  key: "",
+  receiverName: "",
+  receiverCity: "",
+};
 
 export const defaultStorefront: StorefrontSettings = {
   settingsVersion: 2,
@@ -122,6 +167,7 @@ export const defaultStorefront: StorefrontSettings = {
   manifestoItems: defaultManifestoItems.map((item) => ({ ...item })),
   manifestoMaxWidth: 880,
   manifestoDivider: "line",
+  manifestoDividerMobileEnabled: false,
   editorialCatalogLabel: "Explorar catalogo",
   editorialSupportLabel: "Atendimento exclusivo",
   editorialOrdersLabel: "Acompanhar pedidos",
@@ -133,6 +179,37 @@ export const defaultStorefront: StorefrontSettings = {
   featuredLinkLabel: "Ver todos",
   featuredAddButtonLabel: "Adicionar",
   featuredAddedButtonLabel: "Adicionado",
+  catalogEyebrow: "Loja",
+  catalogTitle: "Catalogo",
+  catalogDescription:
+    "Explore os produtos, compare opcoes e encontre a escolha certa para voce.",
+  catalogDensity: "comfortable",
+  catalogBackgroundColor: "#f9f6f0",
+  catalogSurfaceColor: "#ffffff",
+  catalogTextColor: "#090907",
+  catalogSecondaryTextColor: "#5c584f",
+  catalogAccentColor: "#c9a76d",
+  catalogBorderColor: "#d8d1c5",
+  catalogButtonBackgroundColor: "#090907",
+  catalogButtonTextColor: "#ffffff",
+  catalogCardStyle: "boutique",
+  catalogImageFit: "contain",
+  catalogImageRatio: "landscape",
+  catalogButtonStyle: "solid",
+  catalogCardRadius: 8,
+  catalogColumnsDesktop: 4,
+  catalogColumnsTablet: 2,
+  catalogColumnsMobile: 2,
+  catalogTextStyles: {
+    eyebrow: { ...defaultCatalogTextStyles.eyebrow },
+    title: { ...defaultCatalogTextStyles.title },
+    description: { ...defaultCatalogTextStyles.description },
+    category: { ...defaultCatalogTextStyles.category },
+    cardTitle: { ...defaultCatalogTextStyles.cardTitle },
+    cardDescription: { ...defaultCatalogTextStyles.cardDescription },
+    price: { ...defaultCatalogTextStyles.price },
+    button: { ...defaultCatalogTextStyles.button },
+  },
   homeLayout: "editorial",
   productCardStyle: "boutique",
   imageFit: "contain",
@@ -154,10 +231,20 @@ export const defaultStorefront: StorefrontSettings = {
     featuredEyebrow: { ...defaultStorefrontTextStyles.featuredEyebrow },
     featuredTitle: { ...defaultStorefrontTextStyles.featuredTitle },
     productCardTitle: { ...defaultStorefrontTextStyles.productCardTitle },
+    reviewsEyebrow: { ...defaultStorefrontTextStyles.reviewsEyebrow },
+    reviewsTitle: { ...defaultStorefrontTextStyles.reviewsTitle },
+    reviewsBody: { ...defaultStorefrontTextStyles.reviewsBody },
     footerSlogan: { ...defaultStorefrontTextStyles.footerSlogan },
   },
   storefrontFont: "signature",
   adminFont: "signature",
+  reviewsEnabled: false,
+  reviewsEyebrow: "Avaliacoes",
+  reviewsTitle: "Experiencias compartilhadas",
+  reviewsItems: [],
+  reviewsSpeedSeconds: 38,
+  reviewsBackgroundColor: "#faf8f4",
+  reviewsCardColor: "#ffffff",
   footerSlogan:
     "Curadoria reservada, cuidado impecavel e escolhas feitas para poucos.",
   footerShowBrandName: true,
@@ -181,6 +268,23 @@ export const defaultStorefront: StorefrontSettings = {
     "Meu pagamento foi confirmado. Gostaria de combinar o frete ou a retirada com a equipe.",
   primaryColor: "#090907",
   accentColor: "#c9a76d",
+  headerBackgroundColor: "#ffffff",
+  headerTextColor: "#090907",
+  headerAccentColor: "#c9a76d",
+  headerButtonMode: "automatic",
+  headerButtonBackgroundColor: "#090907",
+  headerButtonTextColor: "#ffffff",
+  headerFontFamily: "modern",
+  headerNavFontSize: 15,
+  headerButtonFontSize: 15,
+  headerHeight: 72,
+  headerLogoWidth: 300,
+  headerButtonStyle: "solid",
+  headerButtonRadius: 6,
+  headerBorderColor: "#d8d1c5",
+  headerBorderWidth: 1,
+  headerShadow: "subtle",
+  headerSticky: true,
   footerColor: "#c9a76d",
   backgroundColor: "#ffffff",
   homeSurfaceColor: "#faf8f4",
@@ -204,6 +308,8 @@ function initialState(): CommerceState {
     checkoutAccess: {},
     webhookEvents: [],
     storefront: defaultStorefront,
+    pixSettings: defaultPixSettings,
+    pixIdempotency: {},
   };
 }
 
@@ -220,6 +326,10 @@ function normalizeState(value: Partial<CommerceState> | null): CommerceState {
     checkoutAccess: value?.checkoutAccess ?? state.checkoutAccess,
     webhookEvents: value?.webhookEvents ?? state.webhookEvents,
     storefront: normalizeStorefrontSettings(value?.storefront),
+    pixSettings: pixSettingsSchema.parse(
+      value?.pixSettings ?? state.pixSettings,
+    ),
+    pixIdempotency: value?.pixIdempotency ?? state.pixIdempotency,
   };
 }
 
@@ -228,6 +338,8 @@ function normalizeStoredOrder(value: StoredOrder): StoredOrder {
   const isOnline = value.salesChannel === "online";
   return {
     ...value,
+    paymentMethod:
+      value.paymentMethod ?? (isOnline ? "mercado_pago" : null),
     paymentStatus: value.paymentStatus ?? (isOnline ? "pending" : null),
     shippingMode:
       value.shippingMode ?? (isOnline ? "legacy_calculated" : "manual"),
@@ -250,6 +362,12 @@ function normalizeStoredOrder(value: StoredOrder): StoredOrder {
     pickupInstructions: value.pickupInstructions ?? null,
     shippingContactedAt: value.shippingContactedAt ?? null,
     shippingArrangedAt: value.shippingArrangedAt ?? null,
+    revenueConfirmedAt:
+      value.revenueConfirmedAt ??
+      (value.salesChannel === "online" && value.paymentStatus === "approved"
+        ? value.updatedAt
+        : null),
+    archivedAt: value.archivedAt ?? null,
   };
 }
 
@@ -292,26 +410,107 @@ export function normalizeStorefrontSettings(
       }));
   const legacyMotionPreset =
     value?.homeMotionPreset ?? defaultStorefront.homeMotionPreset;
-  const homeMotionByBlock = value?.homeMotionByBlock ?? {
+  const legacyMotionByBlock = {
     manifesto: legacyMotionPreset,
     navigation: legacyMotionPreset,
     featuredHeading: legacyMotionPreset,
     productCards: legacyMotionPreset,
+    reviews: defaultStorefront.homeMotionByBlock.reviews,
     footer: legacyMotionPreset,
   };
-  const homeTextStyles = value?.homeTextStyles ?? {
-    ...defaultStorefront.homeTextStyles,
+  const homeMotionByBlock = {
+    ...defaultStorefront.homeMotionByBlock,
+    ...legacyMotionByBlock,
+    ...(value?.homeMotionByBlock ?? {}),
+  };
+  const configuredTextStyles = value?.homeTextStyles;
+  const homeTextStyles = {
     heroEyebrow: {
       ...defaultStorefront.homeTextStyles.heroEyebrow,
+      ...(configuredTextStyles?.heroEyebrow ?? {}),
       fontSize:
+        configuredTextStyles?.heroEyebrow?.fontSize ??
         value?.heroEyebrowFontSize ??
         defaultStorefront.homeTextStyles.heroEyebrow.fontSize,
     },
     heroTitle: {
       ...defaultStorefront.homeTextStyles.heroTitle,
+      ...(configuredTextStyles?.heroTitle ?? {}),
       fontSize:
+        configuredTextStyles?.heroTitle?.fontSize ??
         value?.heroTitleFontSize ??
         defaultStorefront.homeTextStyles.heroTitle.fontSize,
+    },
+    manifesto: {
+      ...defaultStorefront.homeTextStyles.manifesto,
+      ...(configuredTextStyles?.manifesto ?? {}),
+    },
+    navigation: {
+      ...defaultStorefront.homeTextStyles.navigation,
+      ...(configuredTextStyles?.navigation ?? {}),
+    },
+    featuredEyebrow: {
+      ...defaultStorefront.homeTextStyles.featuredEyebrow,
+      ...(configuredTextStyles?.featuredEyebrow ?? {}),
+    },
+    featuredTitle: {
+      ...defaultStorefront.homeTextStyles.featuredTitle,
+      ...(configuredTextStyles?.featuredTitle ?? {}),
+    },
+    productCardTitle: {
+      ...defaultStorefront.homeTextStyles.productCardTitle,
+      ...(configuredTextStyles?.productCardTitle ?? {}),
+    },
+    reviewsEyebrow: {
+      ...defaultStorefront.homeTextStyles.reviewsEyebrow,
+      ...(configuredTextStyles?.reviewsEyebrow ?? {}),
+    },
+    reviewsTitle: {
+      ...defaultStorefront.homeTextStyles.reviewsTitle,
+      ...(configuredTextStyles?.reviewsTitle ?? {}),
+    },
+    reviewsBody: {
+      ...defaultStorefront.homeTextStyles.reviewsBody,
+      ...(configuredTextStyles?.reviewsBody ?? {}),
+    },
+    footerSlogan: {
+      ...defaultStorefront.homeTextStyles.footerSlogan,
+      ...(configuredTextStyles?.footerSlogan ?? {}),
+    },
+  };
+  const configuredCatalogTextStyles = value?.catalogTextStyles;
+  const catalogTextStyles = {
+    eyebrow: {
+      ...defaultStorefront.catalogTextStyles.eyebrow,
+      ...(configuredCatalogTextStyles?.eyebrow ?? {}),
+    },
+    title: {
+      ...defaultStorefront.catalogTextStyles.title,
+      ...(configuredCatalogTextStyles?.title ?? {}),
+    },
+    description: {
+      ...defaultStorefront.catalogTextStyles.description,
+      ...(configuredCatalogTextStyles?.description ?? {}),
+    },
+    category: {
+      ...defaultStorefront.catalogTextStyles.category,
+      ...(configuredCatalogTextStyles?.category ?? {}),
+    },
+    cardTitle: {
+      ...defaultStorefront.catalogTextStyles.cardTitle,
+      ...(configuredCatalogTextStyles?.cardTitle ?? {}),
+    },
+    cardDescription: {
+      ...defaultStorefront.catalogTextStyles.cardDescription,
+      ...(configuredCatalogTextStyles?.cardDescription ?? {}),
+    },
+    price: {
+      ...defaultStorefront.catalogTextStyles.price,
+      ...(configuredCatalogTextStyles?.price ?? {}),
+    },
+    button: {
+      ...defaultStorefront.catalogTextStyles.button,
+      ...(configuredCatalogTextStyles?.button ?? {}),
     },
   };
 
@@ -329,6 +528,7 @@ export function normalizeStorefrontSettings(
     manifestoItems,
     homeMotionByBlock,
     homeTextStyles,
+    catalogTextStyles,
     footerColor:
       value?.footerColor ?? value?.accentColor ?? defaultStorefront.footerColor,
     footerHeading:
@@ -634,6 +834,7 @@ export class CommerceStore implements CommerceStoreAdapter {
       customerPhone: input.customer.phone,
       status: "pending_payment",
       salesChannel: "online",
+      paymentMethod: "mercado_pago",
       paymentStatus: "created",
       shippingMode: "whatsapp_after_payment",
       shippingStatus: "awaiting_payment",
@@ -649,6 +850,8 @@ export class CommerceStore implements CommerceStoreAdapter {
       pickupInstructions: null,
       shippingContactedAt: null,
       shippingArrangedAt: null,
+      revenueConfirmedAt: null,
+      archivedAt: null,
       createdAt: now,
       updatedAt: now,
       items: orderItemsFromCart(input.priced),
@@ -661,6 +864,76 @@ export class CommerceStore implements CommerceStoreAdapter {
       input.checkoutAccessTokenHash;
     this.save();
     return order;
+  }
+
+  createPixOrder(input: {
+    orderReference: string;
+    operationId: string;
+    requestHash: string;
+    checkoutAccessTokenHash: string;
+    customer: { name: string; email: string; phone: string };
+    priced: PricedCart;
+    pixPayload: string;
+  }): PixOrderCreationResult {
+    const previousHash = this.state.pixIdempotency[input.operationId];
+    if (previousHash) {
+      if (previousHash !== input.requestHash) {
+        throw new ApiError(
+          409,
+          "IDEMPOTENCY_KEY_REUSED",
+          "Esta tentativa de pagamento ja foi usada para outro carrinho.",
+        );
+      }
+      return {
+        order: assertFound(
+          this.state.orders.find(
+            (order) => order.publicReference === input.orderReference,
+          ),
+          "ORDER_NOT_FOUND",
+          "Order not found.",
+        ),
+        reused: true,
+      };
+    }
+
+    const now = new Date().toISOString();
+    const order: StoredOrder = {
+      id: randomUUID(),
+      publicReference: input.orderReference,
+      customerName: input.customer.name,
+      customerEmail: input.customer.email,
+      customerPhone: input.customer.phone,
+      status: "pending_payment",
+      salesChannel: "online",
+      paymentMethod: "pix_manual",
+      paymentStatus: "pending",
+      shippingMode: "whatsapp_after_payment",
+      shippingStatus: "awaiting_payment",
+      contactStatus: "not_started",
+      subtotalInCents: input.priced.subtotalInCents,
+      discountInCents: input.priced.discountInCents,
+      shippingAmountInCents: null,
+      totalInCents: input.priced.totalInCents,
+      currency: "BRL",
+      shippingNotes: null,
+      deliveryMethod: "undecided",
+      deliveryAddress: null,
+      pickupInstructions: null,
+      shippingContactedAt: null,
+      shippingArrangedAt: null,
+      revenueConfirmedAt: null,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      items: orderItemsFromCart(input.priced),
+      pixPayload: input.pixPayload,
+    };
+    this.state.orders = [order, ...this.state.orders];
+    this.state.checkoutAccess[input.orderReference] =
+      input.checkoutAccessTokenHash;
+    this.state.pixIdempotency[input.operationId] = input.requestHash;
+    this.save();
+    return { order, reused: false };
   }
 
   attachMercadoPagoPreference(
@@ -695,6 +968,7 @@ export class CommerceStore implements CommerceStoreAdapter {
       customerPhone: null,
       status: "contact_requested",
       salesChannel: "whatsapp",
+      paymentMethod: null,
       paymentStatus: null,
       shippingMode: "manual",
       shippingStatus: "awaiting_contact",
@@ -710,6 +984,8 @@ export class CommerceStore implements CommerceStoreAdapter {
       pickupInstructions: null,
       shippingContactedAt: null,
       shippingArrangedAt: null,
+      revenueConfirmedAt: null,
+      archivedAt: null,
       createdAt: now,
       updatedAt: now,
       items: orderItemsFromCart(input.priced),
@@ -773,6 +1049,11 @@ export class CommerceStore implements CommerceStoreAdapter {
         : refunded || cancelled
           ? "cancelled"
           : order.shippingStatus,
+      revenueConfirmedAt: approved
+        ? order.revenueConfirmedAt ?? new Date().toISOString()
+        : refunded || cancelled
+          ? null
+          : order.revenueConfirmedAt,
       updatedAt: new Date().toISOString(),
     };
     this.save();
@@ -796,6 +1077,66 @@ export class CommerceStore implements CommerceStoreAdapter {
     );
     this.save();
     return true;
+  }
+
+  recordPixWhatsappOpen(
+    orderReference: string,
+    checkoutAccessTokenHash: string,
+  ) {
+    const order = this.findCheckoutOrder(
+      orderReference,
+      checkoutAccessTokenHash,
+    );
+    if (!order || order.paymentMethod !== "pix_manual") return false;
+    this.state.orders = this.state.orders.map((candidate) =>
+      candidate.publicReference === orderReference
+        ? {
+            ...candidate,
+            contactStatus: "whatsapp_opened" as const,
+            updatedAt: new Date().toISOString(),
+          }
+        : candidate,
+    );
+    this.save();
+    return true;
+  }
+
+  setPixPaymentStatus(
+    orderReference: string,
+    status: "approved" | "rejected",
+  ) {
+    const existing = assertFound(
+      this.state.orders.find(
+        (order) =>
+          order.publicReference === orderReference &&
+          order.paymentMethod === "pix_manual",
+      ),
+      "PIX_ORDER_NOT_FOUND",
+      "Pedido Pix nao encontrado.",
+    );
+    if (existing.paymentStatus === status) return existing;
+    if (["approved", "rejected"].includes(existing.paymentStatus ?? "")) {
+      throw new ApiError(
+        409,
+        "PIX_PAYMENT_ALREADY_REVIEWED",
+        "Este pagamento Pix ja foi revisado.",
+      );
+    }
+    const now = new Date().toISOString();
+    const updated: StoredOrder = {
+      ...existing,
+      paymentStatus: status,
+      status: status === "approved" ? "paid" : "cancelled",
+      shippingStatus:
+        status === "approved" ? "awaiting_contact" : "cancelled",
+      revenueConfirmedAt: status === "approved" ? now : null,
+      updatedAt: now,
+    };
+    this.state.orders = this.state.orders.map((order) =>
+      order.publicReference === orderReference ? updated : order,
+    );
+    this.save();
+    return updated;
   }
 
   updateOrder(orderReference: string, input: AdminOrderUpdate) {
@@ -828,8 +1169,48 @@ export class CommerceStore implements CommerceStoreAdapter {
     return updated;
   }
 
-  orders() {
-    return this.state.orders;
+  setWhatsappRevenueConfirmed(orderReference: string, confirmed: boolean) {
+    const existing = assertFound(
+      this.state.orders.find(
+        (order) =>
+          order.publicReference === orderReference &&
+          order.salesChannel === "whatsapp",
+      ),
+      "ORDER_NOT_FOUND",
+      "Order not found.",
+    );
+    const now = new Date().toISOString();
+    const updated: StoredOrder = {
+      ...existing,
+      revenueConfirmedAt: confirmed ? existing.revenueConfirmedAt ?? now : null,
+      updatedAt: now,
+    };
+    this.state.orders = this.state.orders.map((order) =>
+      order.publicReference === orderReference ? updated : order,
+    );
+    this.save();
+    return updated;
+  }
+
+  setOrdersArchived(input: AdminOrderArchiveInput) {
+    const references = new Set(input.references);
+    const now = new Date().toISOString();
+    let changed = 0;
+    this.state.orders = this.state.orders.map((order) => {
+      if (!references.has(order.publicReference)) return order;
+      const archivedAt = input.archived ? order.archivedAt ?? now : null;
+      if (archivedAt === order.archivedAt) return order;
+      changed += 1;
+      return { ...order, archivedAt, updatedAt: now };
+    });
+    this.save();
+    return changed;
+  }
+
+  orders(query: OrdersQuery = {}) {
+    return this.state.orders.filter((order) =>
+      query.archived ? Boolean(order.archivedAt) : !order.archivedAt,
+    );
   }
 
   storefront() {
@@ -840,6 +1221,16 @@ export class CommerceStore implements CommerceStoreAdapter {
     this.state.storefront = storefrontSettingsSchema.parse(input);
     this.save();
     return this.state.storefront;
+  }
+
+  pixSettings() {
+    return this.state.pixSettings;
+  }
+
+  updatePixSettings(input: PixSettings) {
+    this.state.pixSettings = pixSettingsSchema.parse(input);
+    this.save();
+    return this.state.pixSettings;
   }
 
   private findCategory(slug: string) {

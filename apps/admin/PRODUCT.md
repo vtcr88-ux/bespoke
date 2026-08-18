@@ -24,9 +24,30 @@ Na Vitrine, a identidade do rodape permite usar uma logo responsiva e escolher s
 
 O produto tem sucesso quando uma pessoa entende as configuracoes na primeira utilizacao, conclui tarefas rotineiras sem ajuda tecnica, confia nos dados apresentados e consegue operar integralmente em qualquer tamanho de tela. A estrutura deve evoluir para white-label sem elementos da Bespoke fixados nas regras ou na interface.
 
+Ao editar produtos, o painel deve explicar que os cards publicos exibem ate 200 caracteres da descricao e aceitam pequenos topicos por linha. O preview precisa reproduzir a expansao real do card antes de salvar.
+
+A aba Vitrine e a fonte de verdade para Header, textos do catalogo, Manifestos, Motion por bloco e Avaliacoes. Configuracoes antigas devem receber novos campos por normalizacao, sem exigir que o administrador refaca a identidade visual existente.
+
+Na Composicao, o administrador controla separadamente a exibicao mobile dos atalhos e do divisor do manifesto, evitando separadores consecutivos sem alterar tablet ou desktop.
+
+Cabecalho, Home, Catalogo e Rodape possuem etapas e configuracoes independentes. Restaurar uma etapa altera somente os campos sob responsabilidade dela; configuracoes gerais servem como fallback e nunca devem substituir uma personalizacao explicita de outro componente. A cor de fundo do Rodape pertence exclusivamente a etapa Rodape.
+
+Seletores de fonte por componente mostram apenas familias visualmente distintas. Valores antigos continuam aceitos para compatibilidade, mas o editor os apresenta como o padrao sem duplicar nomes diferentes para a mesma escolha.
+
+A busca global do painel deve localizar paginas e etapas especificas da Vitrine, aceitar termos sem acento e apenas conduzir a navegacao. Pesquisar, abrir um resultado ou limpar a busca nao modifica nem salva configuracoes.
+
+Avaliacoes permanecem desativadas ate que exista ao menos um relato real, autorizado e habilitado. O editor permite controlar titulo, etiqueta, tipografia, cores e velocidade, mas nao deve gerar depoimentos de exemplo para a pagina publica.
+
 ## Positioning
 
 Um centro de controle confiavel, didatico e adaptavel para toda a operacao comercial de cada boutique.
+
+## Pagamentos Pix
+
+A pagina de Pagamentos concentra a ativacao e os dados do Pix manual por loja,
+alem da fila de pedidos aguardando conferencia. Confirmar ou rejeitar altera o
+estado financeiro somente de pedidos `pix_manual`; pagamentos do Mercado Pago
+continuam dependentes do webhook validado.
 
 ## Brand Personality
 

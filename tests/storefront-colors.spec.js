@@ -124,7 +124,7 @@ test.describe("Cores configuraveis da vitrine", () => {
       await expect(publicPage.locator(".site-footer")).toBeAttached();
 
       await page.goto(adminUrl, { waitUntil: "domcontentloaded" });
-      await page.getByRole("tab", { name: "Composicao" }).click();
+      await page.getByRole("tab", { name: "Layout da Home" }).click();
       const accentInput = page.getByLabel("Cor de destaque");
       const footerInput = page.getByLabel("Cor do rodape");
       await expect(accentInput).toBeVisible();
@@ -214,7 +214,7 @@ test.describe("Cores configuraveis da vitrine", () => {
     );
     await authenticateAdmin(page.request);
     await page.goto(adminUrl, { waitUntil: "domcontentloaded" });
-    await page.getByRole("tab", { name: "Composicao" }).click();
+    await page.getByRole("tab", { name: "Layout da Home" }).click();
     const accentInput = page.getByLabel("Cor de destaque");
     const footerInput = page.getByLabel("Cor do rodape");
     await expect(accentInput).toBeVisible();

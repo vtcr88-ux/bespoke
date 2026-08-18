@@ -1,7 +1,10 @@
 import type {
   AdminCategoryInput,
+  AdminOrderArchiveInput,
   AdminOrderUpdate,
   AdminProductInput,
+  AdminPixPaymentDecision,
+  PixSettings,
   StorefrontSettings,
 } from "@bespoke/contracts";
 import { orderSummarySchema } from "@bespoke/contracts";
@@ -14,36 +17,71 @@ export class AdminService {
   async overview() {
     const products = await this.store.products({ includeInactive: true });
     const orders = await this.store.orders();
-    const confirmedRevenueInCents = orders
-      .filter(
-        (order) =>
-          order.status === "paid" ||
-          order.status === "preparing" ||
-          order.status === "shipped" ||
-          order.status === "delivered",
-      )
+    const confirmedOrders = orders.filter(
+      (order) => order.revenueConfirmedAt !== null,
+    );
+    const confirmedRevenueInCents = confirmedOrders
       .reduce((total, order) => total + order.totalInCents, 0);
     const pendingOrders = orders.filter(
       (order) =>
         order.status === "pending_payment" ||
         order.status === "contact_requested",
     ).length;
-    const inventoryValueInCents = products.reduce(
+    const activeProducts = products.filter((product) => product.isActive);
+    const inventoryValueInCents = activeProducts.reduce(
       (total, product) => total + product.priceInCents * product.stock,
       0,
     );
-    const lowStockCount = products.filter(
-      (product) => product.stock <= product.lowStockThreshold,
+    const activeStockUnits = activeProducts.reduce(
+      (total, product) => total + product.stock,
+      0,
+    );
+    const lowStockCount = activeProducts.filter(
+      (product) =>
+        product.lowStockWarningEnabled &&
+        product.stock <= product.lowStockThreshold,
     ).length;
+    const revenueByChannel = confirmedOrders.reduce(
+      (totals, order) => ({
+        ...totals,
+        [order.salesChannel]: totals[order.salesChannel] + order.totalInCents,
+      }),
+      { online: 0, whatsapp: 0 },
+    );
+    const monthlyRevenueMap = new Map<
+      string,
+      { onlineInCents: number; whatsappInCents: number }
+    >();
+    for (const order of confirmedOrders) {
+      const month = order.revenueConfirmedAt!.slice(0, 7);
+      const current = monthlyRevenueMap.get(month) ?? {
+        onlineInCents: 0,
+        whatsappInCents: 0,
+      };
+      current[
+        order.salesChannel === "online" ? "onlineInCents" : "whatsappInCents"
+      ] += order.totalInCents;
+      monthlyRevenueMap.set(month, current);
+    }
+    const monthlyRevenue = [...monthlyRevenueMap.entries()]
+      .sort(([left], [right]) => right.localeCompare(left))
+      .map(([month, values]) => ({
+        month,
+        ...values,
+        totalInCents: values.onlineInCents + values.whatsappInCents,
+      }));
 
     return {
       metrics: {
         confirmedRevenueInCents,
         pendingOrders,
         lowStockCount,
-        activeProducts: products.filter((product) => product.isActive).length,
+        activeProducts: activeProducts.length,
+        activeStockUnits,
         inventoryValueInCents,
       },
+      revenueByChannel,
+      monthlyRevenue,
       categories: await this.store.categories(),
       recentOrders: orders.slice(0, 6),
       alerts:
@@ -86,10 +124,60 @@ export class AdminService {
     await this.store.deleteProduct(id);
   }
 
-  async orders() {
-    return (await this.store.orders()).map((order) =>
+  async orders(archived = false) {
+    return (await this.store.orders({ archived })).map((order) =>
       orderSummarySchema.parse(order),
     );
+  }
+
+  async setWhatsappRevenueConfirmed(
+    orderReference: string,
+    confirmed: boolean,
+  ) {
+    const order = assertFound(
+      (await this.store.orders()).find(
+        (candidate) => candidate.publicReference === orderReference,
+      ),
+      "ORDER_NOT_FOUND",
+      "Order not found.",
+    );
+    if (order.salesChannel !== "whatsapp") {
+      throw new ApiError(
+        409,
+        "PAYMENT_PROVIDER_AUTHORITATIVE",
+        "Pagamentos online so podem ser confirmados pelo Mercado Pago.",
+      );
+    }
+    return orderSummarySchema.parse(
+      await this.store.setWhatsappRevenueConfirmed(orderReference, confirmed),
+    );
+  }
+
+  async setPixPaymentStatus(
+    orderReference: string,
+    input: AdminPixPaymentDecision,
+  ) {
+    const order = assertFound(
+      (await this.store.orders()).find(
+        (candidate) => candidate.publicReference === orderReference,
+      ),
+      "ORDER_NOT_FOUND",
+      "Order not found.",
+    );
+    if (order.paymentMethod !== "pix_manual") {
+      throw new ApiError(
+        409,
+        "PAYMENT_PROVIDER_AUTHORITATIVE",
+        "Somente pagamentos Pix manuais podem ser revisados por esta acao.",
+      );
+    }
+    return orderSummarySchema.parse(
+      await this.store.setPixPaymentStatus(orderReference, input.status),
+    );
+  }
+
+  async setOrdersArchived(input: AdminOrderArchiveInput) {
+    return this.store.setOrdersArchived(input);
   }
 
   async updateOrder(orderReference: string, input: AdminOrderUpdate) {
@@ -123,10 +211,19 @@ export class AdminService {
     return this.store.updateStorefront(input);
   }
 
+  async pixSettings() {
+    return this.store.pixSettings();
+  }
+
+  async updatePixSettings(input: PixSettings) {
+    return this.store.updatePixSettings(input);
+  }
+
   async isImageReferenced(url: string) {
-    const [products, orders, storefront] = await Promise.all([
+    const [products, orders, archivedOrders, storefront] = await Promise.all([
       this.store.products({ includeInactive: true }),
       this.store.orders(),
+      this.store.orders({ archived: true }),
       this.store.storefront(),
     ]);
     const storefrontImages = [
@@ -143,7 +240,9 @@ export class AdminService {
       products.some((product) =>
         product.images.some((image) => image.url === url),
       ) ||
-      orders.some((order) => order.items.some((item) => item.imageUrl === url))
+      [...orders, ...archivedOrders].some((order) =>
+        order.items.some((item) => item.imageUrl === url),
+      )
     );
   }
 }

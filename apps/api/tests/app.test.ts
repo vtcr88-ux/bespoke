@@ -1,5 +1,9 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { createHmac } from "node:crypto";
+import {
+  isValidBrCode,
+  parseStaticBrCode,
+} from "@thiagoprazeres/pix-static-brcode";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
@@ -87,6 +91,41 @@ describe("Bespoke API", () => {
     ).toBe("#4a2034");
   });
 
+  it("normalizes Header and Catalog without replacing component overrides", () => {
+    const normalized = normalizeStorefrontSettings({
+      ...defaultStorefront,
+      primaryColor: "#161616",
+      homeSurfaceColor: "#f3efe8",
+      headerBackgroundColor: "#173c31",
+      headerFontFamily: "humanist",
+      headerButtonStyle: "minimal",
+      catalogBackgroundColor: "#edf4f0",
+      catalogAccentColor: "#28785f",
+      catalogTextStyles: {
+        ...defaultStorefront.catalogTextStyles,
+        title: {
+          ...defaultStorefront.catalogTextStyles.title,
+          color: "#173c31",
+          fontSize: 70,
+        },
+      },
+    });
+
+    expect(normalized).toMatchObject({
+      primaryColor: "#161616",
+      homeSurfaceColor: "#f3efe8",
+      headerBackgroundColor: "#173c31",
+      headerFontFamily: "humanist",
+      headerButtonStyle: "minimal",
+      catalogBackgroundColor: "#edf4f0",
+      catalogAccentColor: "#28785f",
+    });
+    expect(normalized.catalogTextStyles.title).toMatchObject({
+      color: "#173c31",
+      fontSize: 70,
+    });
+  });
+
   it("lists catalog products with cursor pagination", async () => {
     const response = await request(app)
       .get("/catalog/products?limit=2")
@@ -150,6 +189,394 @@ describe("Bespoke API", () => {
     expect(response.body.shippingAmountInCents).toBeNull();
     expect(response.body.shippingMode).toBe("whatsapp_after_payment");
     expect(response.body.totalInCents).toBe(response.body.subtotalInCents);
+  });
+
+  it("calculates real inventory metrics and manages WhatsApp revenue without deleting history", async () => {
+    const products = await request(app)
+      .get("/admin/products")
+      .set(session)
+      .expect(200);
+    const activeProducts = products.body.items.filter(
+      (product: { status: string }) => product.status === "active",
+    );
+    const expectedInventoryValue = activeProducts.reduce(
+      (
+        total: number,
+        product: { priceInCents: number; stock: number },
+      ) => total + product.priceInCents * product.stock,
+      0,
+    );
+    const expectedStockUnits = activeProducts.reduce(
+      (total: number, product: { stock: number }) => total + product.stock,
+      0,
+    );
+    const initialOverview = await request(app)
+      .get("/admin/overview")
+      .set(session)
+      .expect(200);
+
+    expect(initialOverview.body.metrics).toMatchObject({
+      activeProducts: activeProducts.length,
+      activeStockUnits: expectedStockUnits,
+      inventoryValueInCents: expectedInventoryValue,
+    });
+
+    const whatsapp = await request(app)
+      .post("/whatsapp/requests")
+      .send({
+        items: [
+          {
+            productId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+            quantity: 1,
+          },
+        ],
+      })
+      .expect(201);
+    const reference = whatsapp.body.requestReference as string;
+    const activeOrders = await request(app)
+      .get("/admin/orders")
+      .set(session)
+      .expect(200);
+    const order = activeOrders.body.items.find(
+      (candidate: { publicReference: string }) =>
+        candidate.publicReference === reference,
+    );
+    expect(order).toMatchObject({
+      salesChannel: "whatsapp",
+      revenueConfirmedAt: null,
+      archivedAt: null,
+    });
+
+    const confirmed = await request(app)
+      .patch(`/admin/orders/${reference}/whatsapp-revenue`)
+      .set(session)
+      .send({ confirmed: true })
+      .expect(200);
+    expect(confirmed.body.revenueConfirmedAt).toBeTypeOf("string");
+
+    const confirmedOverview = await request(app)
+      .get("/admin/overview")
+      .set(session)
+      .expect(200);
+    expect(
+      confirmedOverview.body.metrics.confirmedRevenueInCents -
+        initialOverview.body.metrics.confirmedRevenueInCents,
+    ).toBe(order.totalInCents);
+    expect(confirmedOverview.body.revenueByChannel.whatsapp).toBeGreaterThanOrEqual(
+      order.totalInCents,
+    );
+    expect(confirmedOverview.body.monthlyRevenue[0].totalInCents).toBeGreaterThanOrEqual(
+      order.totalInCents,
+    );
+
+    await request(app)
+      .patch("/admin/orders/archive")
+      .set(session)
+      .send({ references: [reference], archived: true })
+      .expect(200, { changed: 1 });
+    const current = await request(app)
+      .get("/admin/orders")
+      .set(session)
+      .expect(200);
+    expect(
+      current.body.items.some(
+        (candidate: { publicReference: string }) =>
+          candidate.publicReference === reference,
+      ),
+    ).toBe(false);
+    const archived = await request(app)
+      .get("/admin/orders?archived=true")
+      .set(session)
+      .expect(200);
+    expect(
+      archived.body.items.find(
+        (candidate: { publicReference: string }) =>
+          candidate.publicReference === reference,
+      )?.archivedAt,
+    ).toBeTypeOf("string");
+    const archivedOverview = await request(app)
+      .get("/admin/overview")
+      .set(session)
+      .expect(200);
+    expect(archivedOverview.body.metrics.confirmedRevenueInCents).toBe(
+      initialOverview.body.metrics.confirmedRevenueInCents,
+    );
+
+    await request(app)
+      .patch("/admin/orders/archive")
+      .set(session)
+      .send({ references: [reference], archived: false })
+      .expect(200, { changed: 1 });
+    await request(app)
+      .patch(`/admin/orders/${reference}/whatsapp-revenue`)
+      .set(session)
+      .send({ confirmed: false })
+      .expect(200);
+  });
+
+  it("generates an idempotent Pix order and requires manual admin confirmation", async () => {
+    await request(app).get("/checkout/payment-methods").expect(200, {
+      pixManualEnabled: false,
+      mercadoPagoEnabled: true,
+    });
+
+    await request(app)
+      .patch("/admin/payments/pix")
+      .set(session)
+      .send({
+        enabled: true,
+        key: "chave-invalida",
+        receiverName: "Loja Teste",
+        receiverCity: "Sao Paulo",
+      })
+      .expect(400);
+
+    await request(app)
+      .patch("/admin/payments/pix")
+      .set(session)
+      .send({
+        enabled: true,
+        key: "financeiro@loja.test",
+        receiverName: "Loja Teste",
+        receiverCity: "Sao Paulo",
+      })
+      .expect(200);
+    await request(app).get("/checkout/payment-methods").expect(200, {
+      pixManualEnabled: true,
+      mercadoPagoEnabled: true,
+    });
+
+    const payload = {
+      operationId: "11111111-1111-4111-8111-111111111111",
+      items: [
+        {
+          productId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+          quantity: 1,
+        },
+      ],
+      customer: {
+        name: "Cliente Pix",
+        email: "cliente.pix@example.test",
+        phone: "11999999999",
+      },
+      shippingAcknowledged: true,
+    };
+    await request(app)
+      .post("/checkout/pix")
+      .send({
+        ...payload,
+        operationId: "22222222-2222-4222-8222-222222222222",
+        items: [{ ...payload.items[0], priceInCents: 1 }],
+      })
+      .expect(400);
+    await request(app)
+      .get("/checkout/orders/PIX-INEXISTENTE/pix")
+      .set("Authorization", `Bearer ${"x".repeat(43)}`)
+      .expect(404);
+    const created = await request(app)
+      .post("/checkout/pix")
+      .send(payload)
+      .expect(201);
+    expect(created.body).toMatchObject({
+      amountInCents: 28_900,
+      currency: "BRL",
+      paymentStatus: "pending",
+      status: "pending_confirmation",
+      reused: false,
+    });
+    expect(created.body.qrCodeDataUrl).toMatch(/^data:image\/png;base64,/);
+    expect(
+      Buffer.from(created.body.qrCodeDataUrl.split(",")[1], "base64")
+        .subarray(0, 8)
+        .toString("hex"),
+    ).toBe("89504e470d0a1a0a");
+    expect(isValidBrCode(created.body.pixCode)).toBe(true);
+    expect(parseStaticBrCode(created.body.pixCode)).toMatchObject({
+      pixKey: "financeiro@loja.test",
+      amount: 289,
+    });
+    const reference = created.body.orderReference as string;
+    const token = created.body.checkoutAccessToken as string;
+    const proofMessage =
+      new URL(created.body.whatsappUrl).searchParams.get("text") ?? "";
+    expect(proofMessage).toContain(reference);
+    expect(proofMessage.replace(/\s/g, " ")).toContain("R$ 289,00");
+
+    await request(app).get(`/checkout/orders/${reference}/pix`).expect(401);
+    const details = await request(app)
+      .get(`/checkout/orders/${reference}/pix`)
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+    expect(details.body.pixCode).toBe(created.body.pixCode);
+    await request(app)
+      .post(`/checkout/orders/${reference}/pix/whatsapp-open`)
+      .set("Authorization", `Bearer ${token}`)
+      .expect(204);
+
+    const replay = await request(app)
+      .post("/checkout/pix")
+      .send(payload)
+      .expect(200);
+    expect(replay.body).toMatchObject({
+      orderReference: reference,
+      checkoutAccessToken: token,
+      reused: true,
+    });
+    const conflict = await request(app)
+      .post("/checkout/pix")
+      .send({
+        ...payload,
+        items: [{ ...payload.items[0], quantity: 2 }],
+      })
+      .expect(409);
+    expect(conflict.body.error.code).toBe("IDEMPOTENCY_KEY_REUSED");
+
+    const listed = await request(app)
+      .get("/admin/orders")
+      .set(session)
+      .expect(200);
+    expect(
+      listed.body.items.find(
+        (order: { publicReference: string }) =>
+          order.publicReference === reference,
+      ),
+    ).toMatchObject({
+      paymentMethod: "pix_manual",
+      paymentStatus: "pending",
+      shippingAmountInCents: null,
+    });
+    await request(app)
+      .patch(`/admin/orders/${reference}/whatsapp-revenue`)
+      .set(session)
+      .send({ confirmed: true })
+      .expect(409);
+    const approved = await request(app)
+      .patch(`/admin/orders/${reference}/pix-payment`)
+      .set(session)
+      .send({ status: "approved" })
+      .expect(200);
+    expect(approved.body).toMatchObject({
+      status: "paid",
+      paymentStatus: "approved",
+      shippingStatus: "awaiting_contact",
+    });
+    expect(approved.body.revenueConfirmedAt).toBeTypeOf("string");
+    await request(app)
+      .patch(`/admin/orders/${reference}/pix-payment`)
+      .set(session)
+      .send({ status: "approved" })
+      .expect(200);
+    await request(app)
+      .patch(`/admin/orders/${reference}/pix-payment`)
+      .set(session)
+      .send({ status: "rejected" })
+      .expect(409);
+    const approvedDetails = await request(app)
+      .get(`/checkout/orders/${reference}/pix`)
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+    expect(approvedDetails.body.status).toBe("approved");
+
+    await request(app)
+      .patch("/admin/orders/archive")
+      .set(session)
+      .send({ references: [reference], archived: true })
+      .expect(200);
+    await request(app)
+      .patch("/admin/payments/pix")
+      .set(session)
+      .send({ enabled: false, key: "", receiverName: "", receiverCity: "" })
+      .expect(200);
+  });
+
+  it("uses the public API callback when the storefront runs on localhost", async () => {
+    let successBackUrl = "";
+    const providerEnv: AppEnv = {
+      ...env,
+      MERCADO_PAGO_ACCESS_TOKEN: "APP_USR-valid-test-token",
+      PUBLIC_API_URL: "https://api.store.test",
+      PUBLIC_WEB_URL: "http://localhost:5173",
+    };
+    const providerApp = createApp(providerEnv, {
+      mercadoPagoPreferenceCreate: async ({ body }) => {
+        successBackUrl = body.back_urls?.success ?? "";
+        return {
+          api_response: {
+            status: 201,
+            headers: ["content-type", ["application/json"]],
+          },
+          id: "preference-test",
+          init_point: "https://www.mercadopago.com.br/checkout/test",
+        };
+      },
+    });
+
+    const checkout = await request(providerApp)
+      .post("/checkout/mercado-pago")
+      .send({
+        items: [
+          {
+            productId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+            quantity: 1,
+          },
+        ],
+        customer: {
+          name: "Cliente Retorno",
+          email: "retorno@example.test",
+          phone: "11999999999",
+        },
+        shippingAcknowledged: true,
+      })
+      .expect(201);
+
+    expect(successBackUrl).toBe(
+      `https://api.store.test/checkout/return?order=${checkout.body.orderReference}`,
+    );
+    await request(providerApp)
+      .get(`/checkout/return?order=${checkout.body.orderReference}`)
+      .expect(302)
+      .expect(
+        "location",
+        `http://localhost:5173/checkout/sandbox?order=${checkout.body.orderReference}`,
+      );
+  });
+
+  it("returns an actionable gateway error when preference creation fails", async () => {
+    const providerApp = createApp(
+      {
+        ...env,
+        MERCADO_PAGO_ACCESS_TOKEN: "APP_USR-valid-test-token",
+        PUBLIC_API_URL: "https://api.store.test",
+      },
+      {
+        mercadoPagoPreferenceCreate: async () => {
+          throw { status: 400, error: "invalid_auto_return" };
+        },
+      },
+    );
+
+    const response = await request(providerApp)
+      .post("/checkout/mercado-pago")
+      .send({
+        items: [
+          {
+            productId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+            quantity: 1,
+          },
+        ],
+        customer: {
+          name: "Cliente Erro",
+          email: "erro@example.test",
+          phone: "11999999999",
+        },
+        shippingAcknowledged: true,
+      })
+      .expect(502);
+
+    expect(response.body.error.code).toBe(
+      "MERCADO_PAGO_PREFERENCE_FAILED",
+    );
+    expect(response.body.error.message).toContain("Mercado Pago");
   });
 
   it("uses a verified and idempotent webhook as the payment source of truth", async () => {
@@ -418,6 +845,54 @@ describe("Bespoke API", () => {
     });
   });
 
+  it("rebases managed storefront uploads for the administrative preview", async () => {
+    const publicOrigin = "https://preview.example.ngrok-free.dev";
+    const previewApp = createApp({
+      ...env,
+      INSTANCE_ID: "admin-preview-media",
+      PUBLIC_API_URL: `${publicOrigin}/api`,
+      PUBLIC_WEB_URL: publicOrigin,
+    });
+    const login = await request(previewApp)
+      .post("/admin/auth/login")
+      .send({ email: adminEmail, password: adminPassword })
+      .expect(200);
+    const previewSession = {
+      Cookie: String(login.headers["set-cookie"]?.[0] ?? "").split(";")[0] ?? "",
+      "x-csrf-token": login.body.csrfToken,
+    };
+    const current = await request(previewApp)
+      .get("/storefront/settings")
+      .expect(200);
+    const logoId = "123e4567-e89b-42d3-a456-426614174000";
+    const heroId = "223e4567-e89b-42d3-a456-426614174000";
+    const updated = await request(previewApp)
+      .patch("/admin/storefront")
+      .set(previewSession)
+      .send({
+        ...current.body,
+        logoUrl: `http://localhost:3333/uploads/images/${logoId}.png`,
+        heroImageUrl: `http://localhost:3333/uploads/images/${heroId}.jpg?motion=product-drop`,
+      })
+      .expect(200);
+
+    expect(updated.body.logoUrl).toBe(
+      `${publicOrigin}/uploads/images/${logoId}.png?variant=logo`,
+    );
+    expect(updated.body.heroImageUrl).toBe(
+      `${publicOrigin}/uploads/images/${heroId}.jpg?motion=product-drop`,
+    );
+
+    const settings = await request(previewApp)
+      .get("/admin/storefront")
+      .set(previewSession)
+      .expect(200);
+    expect(settings.headers["cache-control"]).toContain("no-store");
+    expect(settings.body.logoUrl).toBe(updated.body.logoUrl);
+    expect(settings.body.heroImageUrl).toBe(updated.body.heroImageUrl);
+    expect(JSON.stringify(settings.body)).not.toContain("localhost:3333");
+  });
+
   it("isolates administrative sessions by white-label instance", async () => {
     const firstApp = createApp({ ...env, INSTANCE_ID: "store-first" });
     const secondApp = createApp({ ...env, INSTANCE_ID: "store-second" });
@@ -541,12 +1016,14 @@ describe("Bespoke API", () => {
       ),
       homeTransitionPreset: "depth",
       homeTransitionOverlap: 72,
+      manifestoDividerMobileEnabled: true,
       homeMotionPreset: "cascade",
       homeMotionByBlock: {
         manifesto: "scroll",
         navigation: "cascade",
         featuredHeading: "soft",
         productCards: "structured",
+        reviews: "soft",
         footer: "subtle",
       },
       homeMotionIntensity: "expressive",
@@ -609,6 +1086,7 @@ describe("Bespoke API", () => {
       manifestoLineTwo: payload.manifestoLineTwo,
       homeTransitionPreset: "depth",
       homeTransitionOverlap: 72,
+      manifestoDividerMobileEnabled: true,
       homeMotionPreset: "cascade",
       homeMotionByBlock: payload.homeMotionByBlock,
       homeMotionIntensity: "expressive",
@@ -623,6 +1101,7 @@ describe("Bespoke API", () => {
     expect(published.body.footerShowBrandName).toBe(false);
     expect(published.body.manifestoLineOne).toBe(payload.manifestoLineOne);
     expect(published.body.manifestoItems).toEqual(payload.manifestoItems);
+    expect(published.body.manifestoDividerMobileEnabled).toBe(true);
     expect(published.body.homeMotionByBlock).toEqual(payload.homeMotionByBlock);
     expect(published.body.homeTextStyles).toEqual(payload.homeTextStyles);
     expect(published.body.whatsappPurchaseMessage).toBe(
@@ -665,6 +1144,8 @@ describe("Bespoke API", () => {
     const message = new URL(response.body.url).searchParams.get("text") ?? "";
 
     expect(response.body.requestReference).toMatch(/^WSP-/);
+    expect(message).not.toContain(response.body.requestReference);
+    expect(message).not.toContain("Referencia:");
     expect(message).toContain("Kit Ritual Equilibrio");
     expect(message).toContain("x2");
     expect(message).toContain("Frete: a combinar pelo WhatsApp.");

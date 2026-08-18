@@ -1,0 +1,8 @@
+on_http_request:
+  - name: Block the Admin on the public demonstration endpoint
+    expressions:
+      - "req.url.path.startsWith('/admin') || req.url.path.startsWith('/api/admin')"
+    actions:
+      - type: deny
+        config:
+          status_code: 404

@@ -6,10 +6,19 @@ import type {
   TextareaHTMLAttributes,
 } from "react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import {
+  Link,
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
+  Archive,
   ArrowDown,
   ArrowUp,
   BarChart3,
@@ -23,6 +32,7 @@ import {
   Download,
   Edit3,
   Eye,
+  EyeOff,
   Image as ImageIcon,
   LayoutDashboard,
   Link2,
@@ -33,11 +43,15 @@ import {
   Minimize2,
   PackagePlus,
   Palette,
+  PanelTop,
   PanelBottom,
   Plus,
   Power,
+  QrCode,
   RotateCcw,
+  RefreshCw,
   Save,
+  Search,
   Settings,
   ShieldCheck,
   ShoppingBag,
@@ -52,19 +66,23 @@ import {
   X,
 } from "lucide-react";
 import {
+  defaultCatalogTextStyles,
   defaultFooterLinks,
   defaultHomeMotionByBlock,
   defaultHomeSections,
   defaultManifestoItems,
   defaultStorefrontTextStyles,
   formatFooterCopyright,
+  formatProductCardDescription,
   isSystemFooterLink,
   orderFooterLinks,
+  productCardDescriptionMaxLength,
   type AdminProductInput,
   type AdminOrderUpdate,
   type AdminProductRow,
   type Category,
   type OrderSummary,
+  type PixSettings,
   type StorefrontSettings,
   type StorefrontTextStyle,
 } from "@bespoke/contracts";
@@ -84,6 +102,7 @@ import {
 } from "@bespoke/design-system";
 import {
   type AdminOverview,
+  adminMediaUrl,
   createCategory,
   createProduct,
   deleteProduct,
@@ -91,12 +110,22 @@ import {
   getCategories,
   getOrders,
   getOverview,
+  getPixSettings,
   getProducts,
   getStorefront,
+  setOrdersArchived,
+  setPixPaymentStatus,
+  setWhatsappRevenueConfirmed,
   updateProduct,
   updateOrder,
+  updatePixSettings,
   updateStorefront,
 } from "../lib/api";
+import { resolveStorefrontPreviewUrl } from "../lib/storefront-preview-url";
+import {
+  createStorefrontPreviewDocument,
+  shouldEmbedStorefrontPreview,
+} from "../lib/storefront-preview-document";
 import { formatMoney, maskEmail } from "../lib/format";
 import { ImageUploadField } from "../components/ImageUploadField";
 import { HexColorField } from "../components/HexColorField";
@@ -106,7 +135,6 @@ import adminLogo from "../assets/bespoke-admin-logo.png";
 type StorefrontPaletteKey =
   | "primaryColor"
   | "accentColor"
-  | "footerColor"
   | "backgroundColor"
   | "homeSurfaceColor"
   | "homeAlternateColor"
@@ -122,7 +150,6 @@ const storefrontPaletteFields: ReadonlyArray<{
 }> = [
   { key: "primaryColor", label: "Cor principal do texto" },
   { key: "accentColor", label: "Cor de destaque" },
-  { key: "footerColor", label: "Cor do rodape" },
   { key: "backgroundColor", label: "Fundo principal" },
   { key: "homeSurfaceColor", label: "Superficie da Home" },
   { key: "homeAlternateColor", label: "Superficie alternativa" },
@@ -166,6 +193,158 @@ const navSections = [
     ],
   },
 ];
+
+type AdminSearchItem = {
+  label: string;
+  group: string;
+  description: string;
+  to: string;
+  keywords: string;
+};
+
+const adminSearchItems: AdminSearchItem[] = [
+  {
+    label: "Dashboard",
+    group: "Operacao",
+    description: "Resumo geral da loja",
+    to: "/",
+    keywords: "inicio metricas resumo painel",
+  },
+  {
+    label: "Produtos",
+    group: "Operacao",
+    description: "Cadastro, imagens, categorias e destaques",
+    to: "/produtos",
+    keywords: "produto card imagem categoria preco estoque",
+  },
+  {
+    label: "Pedidos",
+    group: "Operacao",
+    description: "Compras e estados de atendimento",
+    to: "/pedidos",
+    keywords: "pedido compra pagamento entrega whatsapp",
+  },
+  {
+    label: "Estoque",
+    group: "Operacao",
+    description: "Disponibilidade dos produtos",
+    to: "/estoque",
+    keywords: "quantidade baixo disponibilidade",
+  },
+  {
+    label: "Identidade da vitrine",
+    group: "Vitrine",
+    description: "Marca, logos e fontes gerais",
+    to: "/aparencia?tab=brand",
+    keywords: "marca logo identidade fonte geral",
+  },
+  {
+    label: "Cabecalho da vitrine",
+    group: "Vitrine",
+    description: "Cores, tipografia, logo e botoes do Header",
+    to: "/aparencia?tab=header",
+    keywords: "header cabecalho menu navegacao cor botao logo sombra",
+  },
+  {
+    label: "Capa e textos da Home",
+    group: "Vitrine",
+    description: "Hero, manifesto e chamadas principais",
+    to: "/aparencia?tab=content",
+    keywords: "capa hero manifesto texto titulo etiqueta",
+  },
+  {
+    label: "Layout da Home",
+    group: "Vitrine",
+    description: "Paleta, secoes e cards em destaque",
+    to: "/aparencia?tab=composition",
+    keywords: "home layout cor paleta card secao espacamento",
+  },
+  {
+    label: "Catalogo da vitrine",
+    group: "Vitrine",
+    description: "Textos, paleta, tipografia, cards e grade",
+    to: "/aparencia?tab=catalog",
+    keywords: "catalogo titulo descricao cor fonte card coluna filtro",
+  },
+  {
+    label: "Avaliacoes",
+    group: "Vitrine",
+    description: "Relatos reais e carrossel",
+    to: "/aparencia?tab=reviews",
+    keywords: "avaliacao depoimento relato carrossel",
+  },
+  {
+    label: "Rodape",
+    group: "Vitrine",
+    description: "Logo, atendimento, links e textos legais",
+    to: "/aparencia?tab=footer",
+    keywords: "footer rodape slogan link rede social whatsapp",
+  },
+  {
+    label: "Busca e compartilhamento",
+    group: "Vitrine",
+    description: "SEO, titulo, descricao, favicon e imagem social",
+    to: "/aparencia?tab=seo",
+    keywords: "busca seo google meta favicon compartilhamento",
+  },
+  {
+    label: "Movimento da Home",
+    group: "Vitrine",
+    description: "Animacoes por area da pagina publica",
+    to: "/aparencia?tab=motion",
+    keywords: "motion animacao movimento scroll fade cascade",
+  },
+  {
+    label: "Clientes",
+    group: "Atendimento",
+    description: "Relacionamento e cadastro de clientes",
+    to: "/clientes",
+    keywords: "cliente conta contato",
+  },
+  {
+    label: "WhatsApp",
+    group: "Atendimento",
+    description: "Mensagens dos fluxos de compra",
+    to: "/whatsapp",
+    keywords: "mensagem compra atendimento frete",
+  },
+  {
+    label: "Pagamentos",
+    group: "Atendimento",
+    description: "Acompanhamento de pagamentos",
+    to: "/pagamentos",
+    keywords: "mercado pago status financeiro",
+  },
+  {
+    label: "Relatorios",
+    group: "Loja",
+    description: "Indicadores e exportacoes",
+    to: "/relatorios",
+    keywords: "relatorio exportar csv indicadores",
+  },
+  {
+    label: "Auditoria",
+    group: "Sistema",
+    description: "Historico e verificacoes administrativas",
+    to: "/auditoria",
+    keywords: "auditoria log historico seguranca",
+  },
+  {
+    label: "Ajustes",
+    group: "Sistema",
+    description: "Configuracoes operacionais da loja",
+    to: "/configuracoes",
+    keywords: "ajuste configuracao sistema",
+  },
+];
+
+function normalizeAdminSearchTerm(value: string) {
+  return value
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR");
+}
 
 const defaultProductFilters = {
   search: "",
@@ -256,6 +435,7 @@ function exportOrdersCsv(
       "Email",
       "Telefone",
       "Status",
+      "Metodo de pagamento",
       "Pagamento",
       "Frete",
       "Atendimento",
@@ -263,6 +443,8 @@ function exportOrdersCsv(
       "Subtotal",
       "Desconto",
       "Total",
+      "Criado em",
+      "Receita confirmada em",
       "Atualizado em",
     ],
     orders.map((order) => [
@@ -271,6 +453,7 @@ function exportOrdersCsv(
       order.customerEmail ?? "",
       order.customerPhone ?? "",
       order.status,
+      paymentMethodLabel(order),
       order.paymentStatus ?? "nao aplicavel",
       order.shippingStatus ?? "nao iniciado",
       order.contactStatus ?? "nao iniciado",
@@ -278,9 +461,16 @@ function exportOrdersCsv(
       formatMoney(order.subtotalInCents),
       formatMoney(order.discountInCents),
       formatMoney(order.totalInCents),
+      formatDate(order.createdAt),
+      order.revenueConfirmedAt ? formatDate(order.revenueConfirmedAt) : "",
       formatDate(order.updatedAt),
     ]),
   );
+}
+
+function paymentMethodLabel(order: OrderSummary) {
+  if (order.salesChannel === "whatsapp") return "WhatsApp";
+  return order.paymentMethod === "pix_manual" ? "Pix" : "Mercado Pago";
 }
 
 function exportOverviewCsv(overview: AdminOverview) {
@@ -296,12 +486,27 @@ function exportOverviewCsv(overview: AdminOverview) {
       ["Pedidos pendentes", overview.metrics.pendingOrders, ""],
       ["Produtos com estoque baixo", overview.metrics.lowStockCount, ""],
       ["Produtos ativos", overview.metrics.activeProducts, ""],
+      ["Unidades ativas em estoque", overview.metrics.activeStockUnits, ""],
       [
         "Valor em estoque",
         formatMoney(overview.metrics.inventoryValueInCents),
         "",
       ],
     ],
+  );
+}
+
+function exportMonthlyRevenueCsv(overview: AdminOverview) {
+  if (!overview.monthlyRevenue.length) return;
+  downloadCsv(
+    `receita-mensal-${csvDate()}.csv`,
+    ["Mes", "Online (Pix e Mercado Pago)", "WhatsApp", "Total confirmado"],
+    overview.monthlyRevenue.map((row) => [
+      formatMonthKey(row.month),
+      formatMoney(row.onlineInCents),
+      formatMoney(row.whatsappInCents),
+      formatMoney(row.totalInCents),
+    ]),
   );
 }
 
@@ -322,14 +527,37 @@ function Shell({
   logoutPending: boolean;
 }) {
   const [topbarCollapsed, setTopbarCollapsed] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
+  const navigate = useNavigate();
   const storefront = useQuery({
     queryKey: ["admin-storefront"],
     queryFn: getStorefront,
     retry: false,
   });
   const brandName = storefront.data?.brandName?.trim();
-  const operationTitle = brandName ? `Operacao ${brandName}` : "Operacao da loja";
+  const operationTitle = brandName
+    ? `Operacao ${brandName}`
+    : "Operacao da loja";
+  const normalizedSearch = normalizeAdminSearchTerm(searchQuery);
+  const searchResults = useMemo(() => {
+    const source = normalizedSearch
+      ? adminSearchItems.filter((item) =>
+          normalizeAdminSearchTerm(
+            `${item.label} ${item.group} ${item.description} ${item.keywords}`,
+          ).includes(normalizedSearch),
+        )
+      : adminSearchItems.slice(0, 7);
+    return source.slice(0, 8);
+  }, [normalizedSearch]);
+
+  function openSearchItem(item: AdminSearchItem) {
+    navigate(item.to);
+    setSearchQuery("");
+    setSearchOpen(false);
+  }
 
   return (
     <div
@@ -395,11 +623,101 @@ function Shell({
           <div className="topbar-actions">
             {!topbarCollapsed ? (
               <>
-                <TextField
-                  disabled
-                  label="Buscar"
-                  placeholder="Busca global em preparacao"
-                />
+                <div
+                  ref={searchRef}
+                  className="admin-global-search"
+                  data-open={searchOpen ? "true" : "false"}
+                  onBlur={(event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget)) {
+                      setSearchOpen(false);
+                    }
+                  }}
+                >
+                  <label htmlFor="admin-global-search-input">
+                    Buscar no painel
+                  </label>
+                  <div className="admin-global-search__control">
+                    <Search aria-hidden="true" size={17} />
+                    <input
+                      aria-autocomplete="list"
+                      aria-controls="admin-global-search-results"
+                      aria-expanded={searchOpen}
+                      autoComplete="off"
+                      id="admin-global-search-input"
+                      placeholder="Buscar pagina ou configuracao"
+                      role="combobox"
+                      type="search"
+                      value={searchQuery}
+                      onChange={(event) => {
+                        setSearchQuery(event.target.value);
+                        setSearchOpen(true);
+                      }}
+                      onFocus={() => setSearchOpen(true)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") {
+                          setSearchQuery("");
+                          setSearchOpen(false);
+                        }
+                        if (event.key === "Enter" && searchResults[0]) {
+                          event.preventDefault();
+                          openSearchItem(searchResults[0]);
+                        }
+                        if (event.key === "ArrowDown") {
+                          event.preventDefault();
+                          searchRef.current
+                            ?.querySelector<HTMLButtonElement>(
+                              ".admin-global-search__results button",
+                            )
+                            ?.focus();
+                        }
+                      }}
+                    />
+                    {searchQuery ? (
+                      <IconButton
+                        label="Limpar busca"
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery("");
+                          setSearchOpen(true);
+                        }}
+                      >
+                        <X size={15} />
+                      </IconButton>
+                    ) : null}
+                  </div>
+                  {searchOpen ? (
+                    <div
+                      className="admin-global-search__results"
+                      id="admin-global-search-results"
+                      role="listbox"
+                    >
+                      <div className="admin-global-search__results-heading">
+                        {normalizedSearch
+                          ? `${searchResults.length} resultado${searchResults.length === 1 ? "" : "s"}`
+                          : "Atalhos de navegacao"}
+                      </div>
+                      {searchResults.length ? (
+                        searchResults.map((item) => (
+                          <button
+                            key={`${item.to}-${item.label}`}
+                            role="option"
+                            type="button"
+                            onClick={() => openSearchItem(item)}
+                          >
+                            <Search aria-hidden="true" size={15} />
+                            <span>
+                              <strong>{item.label}</strong>
+                              <small>{item.description}</small>
+                            </span>
+                            <em>{item.group}</em>
+                          </button>
+                        ))
+                      ) : (
+                        <p>Nenhuma pagina ou configuracao encontrada.</p>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
                 <IconButton disabled label="Status da plataforma em preparacao">
                   <Activity size={18} />
                 </IconButton>
@@ -469,15 +787,26 @@ function Dashboard() {
         eyebrow="Visao geral"
         title="Dashboard"
         action={
-          <Link
-            className="ds-button ds-button--primary admin-link-button"
-            to="/produtos"
-          >
-            <span>
-              <Plus size={16} />
-              Novo produto
-            </span>
-          </Link>
+          <div className="page-title__actions">
+            <Button
+              loading={overview.isFetching}
+              type="button"
+              variant="secondary"
+              onClick={() => overview.refetch()}
+            >
+              <RefreshCw size={16} />
+              Atualizar
+            </Button>
+            <Link
+              className="ds-button ds-button--primary admin-link-button"
+              to="/produtos"
+            >
+              <span>
+                <Plus size={16} />
+                Novo produto
+              </span>
+            </Link>
+          </div>
         }
       />
       {overview.isError ? (
@@ -488,7 +817,7 @@ function Dashboard() {
       ) : null}
       <div className="metric-grid">
         {overview.isLoading || !overview.data ? (
-          Array.from({ length: 4 }, (_, index) => (
+          Array.from({ length: 5 }, (_, index) => (
             <Skeleton key={index} className="metric-card" />
           ))
         ) : (
@@ -512,7 +841,12 @@ function Dashboard() {
             <Metric
               label="Produtos ativos"
               value={String(overview.data.metrics.activeProducts)}
-              hint={formatMoney(overview.data.metrics.inventoryValueInCents)}
+              hint={`${overview.data.metrics.activeStockUnits ?? 0} unidades disponíveis`}
+            />
+            <Metric
+              label="Valor do estoque ativo"
+              value={formatMoney(overview.data.metrics.inventoryValueInCents)}
+              hint="Preço atual × quantidade disponível"
             />
           </>
         )}
@@ -520,17 +854,7 @@ function Dashboard() {
       <div className="dashboard-grid">
         <section className="panel">
           <h2>Receita por canal</h2>
-          <div className="bar-chart" aria-label="Receita por canal">
-            <span style={{ height: "28%" }}>
-              <b>Online</b>
-            </span>
-            <span style={{ height: "12%" }}>
-              <b>WhatsApp</b>
-            </span>
-            <span style={{ height: "4%" }}>
-              <b>Reembolso</b>
-            </span>
-          </div>
+          <RevenueByChannelChart overview={overview.data} />
         </section>
         <section className="panel">
           <h2>Alertas</h2>
@@ -673,9 +997,7 @@ function Products() {
               product.sku,
               product.slug,
               product.subtitle ?? "",
-            ].some((value) =>
-              value.toLocaleLowerCase("pt-BR").includes(search),
-            )
+            ].some((value) => value.toLocaleLowerCase("pt-BR").includes(search))
           : true;
         const matchesStatus =
           filters.status === "all" ? true : product.status === filters.status;
@@ -998,7 +1320,13 @@ function Inventory() {
 function Orders() {
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<OrderSummary | null>(null);
-  const orders = useQuery({ queryKey: ["admin-orders"], queryFn: getOrders });
+  const [showArchived, setShowArchived] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const [notice, setNotice] = useState("");
+  const orders = useQuery({
+    queryKey: ["admin-orders", showArchived],
+    queryFn: () => getOrders(showArchived),
+  });
   const orderItems = orders.data?.items ?? [];
   const save = useMutation({
     mutationFn: ({
@@ -1011,6 +1339,33 @@ function Orders() {
     onSuccess(order) {
       setSelected(order);
       void queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
+    },
+  });
+  const archive = useMutation({
+    mutationFn: () =>
+      setOrdersArchived({
+        references: orderItems.map((order) => order.publicReference),
+        archived: !showArchived,
+      }),
+    onSuccess(result) {
+      setNotice(
+        showArchived
+          ? `${result.changed} pedidos restaurados.`
+          : `${result.changed} pedidos arquivados e removidos dos indicadores.`,
+      );
+      setConfirmArchive(false);
+      void queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
+    },
+  });
+  const whatsappRevenue = useMutation({
+    mutationFn: ({ reference, confirmed }: { reference: string; confirmed: boolean }) =>
+      setWhatsappRevenueConfirmed(reference, confirmed),
+    onSuccess() {
+      setNotice("Receita do pedido atualizada.");
+      void queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
     },
   });
 
@@ -1020,59 +1375,92 @@ function Orders() {
         eyebrow="Operacao"
         title="Pedidos"
         action={
-          <Button
-            disabled={orders.isLoading || orderItems.length === 0}
-            title="Exportar historico de pedidos"
-            type="button"
-            variant="secondary"
-            onClick={() => exportOrdersCsv(orderItems)}
-          >
-            <Download size={16} />
-            Exportar
-          </Button>
+          <div className="page-title__actions">
+            <Button
+              loading={orders.isFetching}
+              type="button"
+              variant="secondary"
+              onClick={() => orders.refetch()}
+            >
+              <RefreshCw size={16} />
+              Atualizar
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setNotice("");
+                setShowArchived((value) => !value);
+              }}
+            >
+              {showArchived ? <RotateCcw size={16} /> : <Archive size={16} />}
+              {showArchived ? "Ver atuais" : "Ver arquivados"}
+            </Button>
+            <Button
+              disabled={orders.isLoading || orderItems.length === 0}
+              title="Exportar historico de pedidos"
+              type="button"
+              variant="secondary"
+              onClick={() => exportOrdersCsv(orderItems)}
+            >
+              <Download size={16} />
+              Exportar
+            </Button>
+          </div>
         }
       />
+      {notice ? (
+        <p className="notice-text" role="status">
+          <CheckCircle2 size={16} /> {notice}
+        </p>
+      ) : null}
       {orders.isError ? (
         <p className="error-text" role="alert">
           Nao foi possivel carregar os pedidos. Tente novamente.
         </p>
       ) : null}
-      <DataTable
-        columns={[
-          "Referencia",
-          "Cliente",
-          "Status",
-          "Canal",
-          "Total",
-          "Frete",
-          "Atualizado",
-          "Acoes",
-        ]}
+      <OrderHistory
         loading={orders.isLoading}
-        rows={orderItems.map((order) => [
-          order.publicReference,
-          order.customerEmail
-            ? maskEmail(order.customerEmail)
-            : "Compra assistida",
-          order.status,
-          order.salesChannel,
-          formatMoney(order.totalInCents),
-          order.shippingAmountInCents == null
-            ? "A combinar"
-            : formatMoney(order.shippingAmountInCents),
-          formatDate(order.updatedAt),
-          order.salesChannel === "online" ? (
-            <IconButton
-              label={`Gerenciar entrega de ${order.publicReference}`}
-              onClick={() => setSelected(order)}
-            >
-              <Edit3 size={16} />
-            </IconButton>
-          ) : (
-            "Atendimento direto"
-          ),
-        ])}
+        orders={orderItems}
+        revenuePendingReference={whatsappRevenue.variables?.reference}
+        onManage={setSelected}
+        onToggleWhatsappRevenue={(order) =>
+          whatsappRevenue.mutate({
+            reference: order.publicReference,
+            confirmed: !order.revenueConfirmedAt,
+          })
+        }
       />
+      {orderItems.length ? (
+        <section className="panel history-maintenance">
+          <div>
+            <p className="panel-eyebrow">Organizacao do historico</p>
+            <h2>{showArchived ? "Restaurar pedidos arquivados" : "Arquivar pedidos de teste"}</h2>
+            <p>
+              {showArchived
+                ? "Os pedidos voltam a participar do Dashboard e dos Relatorios."
+                : "Os pedidos permanecem preservados para auditoria, mas deixam de participar dos indicadores e relatorios atuais."}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant={showArchived ? "secondary" : "danger"}
+            onClick={() => setConfirmArchive(true)}
+          >
+            {showArchived ? <RotateCcw size={16} /> : <Archive size={16} />}
+            {showArchived ? "Restaurar este historico" : "Arquivar historico atual"}
+          </Button>
+        </section>
+      ) : null}
+      {confirmArchive ? (
+        <HistoryArchiveConfirmation
+          archived={showArchived}
+          count={orderItems.length}
+          pending={archive.isPending}
+          onCancel={() => setConfirmArchive(false)}
+          onConfirm={() => archive.mutate()}
+        />
+      ) : null}
       {selected ? (
         <OrderOperations
           key={`${selected.publicReference}-${selected.updatedAt}`}
@@ -1135,7 +1523,9 @@ function OrderOperations({
         <div>
           <p className="panel-eyebrow">{order.publicReference}</p>
           <h2>Entrega e atendimento</h2>
-          <p>Pagamento: {order.paymentStatus ?? "nao aplicavel"}</p>
+          <p>
+            Pagamento: {paymentMethodLabel(order)} - {order.paymentStatus ?? "nao aplicavel"}
+          </p>
           {!paymentApproved ? (
             <p className="order-operations__notice">
               A entrega so pode avancar depois da confirmacao do pagamento.
@@ -1293,6 +1683,7 @@ const storefrontEditorDefaults: StorefrontSettings = {
   manifestoItems: defaultManifestoItems.map((item) => ({ ...item })),
   manifestoMaxWidth: 880,
   manifestoDivider: "line",
+  manifestoDividerMobileEnabled: false,
   editorialCatalogLabel: "Explorar catalogo",
   editorialSupportLabel: "Atendimento exclusivo",
   editorialOrdersLabel: "Acompanhar pedidos",
@@ -1304,6 +1695,37 @@ const storefrontEditorDefaults: StorefrontSettings = {
   featuredLinkLabel: "Ver todos",
   featuredAddButtonLabel: "Adicionar",
   featuredAddedButtonLabel: "Adicionado",
+  catalogEyebrow: "Loja",
+  catalogTitle: "Catalogo",
+  catalogDescription:
+    "Explore os produtos, compare opcoes e encontre a escolha certa para voce.",
+  catalogDensity: "comfortable",
+  catalogBackgroundColor: "#f9f6f0",
+  catalogSurfaceColor: "#ffffff",
+  catalogTextColor: "#090907",
+  catalogSecondaryTextColor: "#5c584f",
+  catalogAccentColor: "#c9a76d",
+  catalogBorderColor: "#d8d1c5",
+  catalogButtonBackgroundColor: "#090907",
+  catalogButtonTextColor: "#ffffff",
+  catalogCardStyle: "boutique",
+  catalogImageFit: "contain",
+  catalogImageRatio: "landscape",
+  catalogButtonStyle: "solid",
+  catalogCardRadius: 8,
+  catalogColumnsDesktop: 4,
+  catalogColumnsTablet: 2,
+  catalogColumnsMobile: 2,
+  catalogTextStyles: {
+    eyebrow: { ...defaultCatalogTextStyles.eyebrow },
+    title: { ...defaultCatalogTextStyles.title },
+    description: { ...defaultCatalogTextStyles.description },
+    category: { ...defaultCatalogTextStyles.category },
+    cardTitle: { ...defaultCatalogTextStyles.cardTitle },
+    cardDescription: { ...defaultCatalogTextStyles.cardDescription },
+    price: { ...defaultCatalogTextStyles.price },
+    button: { ...defaultCatalogTextStyles.button },
+  },
   homeLayout: "editorial",
   productCardStyle: "boutique",
   imageFit: "contain",
@@ -1325,10 +1747,20 @@ const storefrontEditorDefaults: StorefrontSettings = {
     featuredEyebrow: { ...defaultStorefrontTextStyles.featuredEyebrow },
     featuredTitle: { ...defaultStorefrontTextStyles.featuredTitle },
     productCardTitle: { ...defaultStorefrontTextStyles.productCardTitle },
+    reviewsEyebrow: { ...defaultStorefrontTextStyles.reviewsEyebrow },
+    reviewsTitle: { ...defaultStorefrontTextStyles.reviewsTitle },
+    reviewsBody: { ...defaultStorefrontTextStyles.reviewsBody },
     footerSlogan: { ...defaultStorefrontTextStyles.footerSlogan },
   },
   storefrontFont: "signature",
   adminFont: "signature",
+  reviewsEnabled: false,
+  reviewsEyebrow: "Avaliacoes",
+  reviewsTitle: "Experiencias compartilhadas",
+  reviewsItems: [],
+  reviewsSpeedSeconds: 38,
+  reviewsBackgroundColor: "#faf8f4",
+  reviewsCardColor: "#ffffff",
   footerSlogan:
     "Curadoria reservada, cuidado impecavel e escolhas feitas para poucos.",
   footerShowBrandName: true,
@@ -1352,6 +1784,23 @@ const storefrontEditorDefaults: StorefrontSettings = {
     "Meu pagamento foi confirmado. Gostaria de combinar o frete ou a retirada com a equipe.",
   primaryColor: "#090907",
   accentColor: "#c9a76d",
+  headerBackgroundColor: "#ffffff",
+  headerTextColor: "#090907",
+  headerAccentColor: "#c9a76d",
+  headerButtonMode: "automatic",
+  headerButtonBackgroundColor: "#090907",
+  headerButtonTextColor: "#ffffff",
+  headerFontFamily: "modern",
+  headerNavFontSize: 15,
+  headerButtonFontSize: 15,
+  headerHeight: 72,
+  headerLogoWidth: 300,
+  headerButtonStyle: "solid",
+  headerButtonRadius: 6,
+  headerBorderColor: "#d8d1c5",
+  headerBorderWidth: 1,
+  headerShadow: "subtle",
+  headerSticky: true,
   footerColor: "#c9a76d",
   backgroundColor: "#ffffff",
   homeSurfaceColor: "#faf8f4",
@@ -1362,6 +1811,121 @@ const storefrontEditorDefaults: StorefrontSettings = {
   homeTransitionStartColor: "#c9a76d",
   homeTransitionEndColor: "#faf8f4",
 };
+
+function normalizeStorefrontEditorInitial(
+  initial: StorefrontSettings,
+): StorefrontSettings {
+  const legacy = initial as Partial<StorefrontSettings>;
+  const textStyles = legacy.homeTextStyles;
+  const catalogTextStyles = legacy.catalogTextStyles;
+  const legacyHeaderFont = legacy.headerFontFamily ?? "modern";
+
+  return {
+    ...storefrontEditorDefaults,
+    ...legacy,
+    headerFontFamily:
+      legacyHeaderFont === "inherit" ||
+      legacyHeaderFont === "display" ||
+      legacyHeaderFont === "body"
+        ? "modern"
+        : legacyHeaderFont,
+    manifestoItems: (legacy.manifestoItems ?? defaultManifestoItems).map(
+      (item) => ({
+        ...item,
+        fontFamily:
+          item.fontFamily === "display" || item.fontFamily === "body"
+            ? "inherit"
+            : (item.fontFamily ?? "inherit"),
+        fontSize: item.fontSize ?? 0,
+        spacingAfter: item.spacingAfter ?? 40,
+      }),
+    ),
+    homeMotionByBlock: {
+      ...storefrontEditorDefaults.homeMotionByBlock,
+      ...(legacy.homeMotionByBlock ?? {}),
+    },
+    homeTextStyles: {
+      heroEyebrow: {
+        ...storefrontEditorDefaults.homeTextStyles.heroEyebrow,
+        ...(textStyles?.heroEyebrow ?? {}),
+      },
+      heroTitle: {
+        ...storefrontEditorDefaults.homeTextStyles.heroTitle,
+        ...(textStyles?.heroTitle ?? {}),
+      },
+      manifesto: {
+        ...storefrontEditorDefaults.homeTextStyles.manifesto,
+        ...(textStyles?.manifesto ?? {}),
+      },
+      navigation: {
+        ...storefrontEditorDefaults.homeTextStyles.navigation,
+        ...(textStyles?.navigation ?? {}),
+      },
+      featuredEyebrow: {
+        ...storefrontEditorDefaults.homeTextStyles.featuredEyebrow,
+        ...(textStyles?.featuredEyebrow ?? {}),
+      },
+      featuredTitle: {
+        ...storefrontEditorDefaults.homeTextStyles.featuredTitle,
+        ...(textStyles?.featuredTitle ?? {}),
+      },
+      productCardTitle: {
+        ...storefrontEditorDefaults.homeTextStyles.productCardTitle,
+        ...(textStyles?.productCardTitle ?? {}),
+      },
+      reviewsEyebrow: {
+        ...storefrontEditorDefaults.homeTextStyles.reviewsEyebrow,
+        ...(textStyles?.reviewsEyebrow ?? {}),
+      },
+      reviewsTitle: {
+        ...storefrontEditorDefaults.homeTextStyles.reviewsTitle,
+        ...(textStyles?.reviewsTitle ?? {}),
+      },
+      reviewsBody: {
+        ...storefrontEditorDefaults.homeTextStyles.reviewsBody,
+        ...(textStyles?.reviewsBody ?? {}),
+      },
+      footerSlogan: {
+        ...storefrontEditorDefaults.homeTextStyles.footerSlogan,
+        ...(textStyles?.footerSlogan ?? {}),
+      },
+    },
+    catalogTextStyles: {
+      eyebrow: {
+        ...storefrontEditorDefaults.catalogTextStyles.eyebrow,
+        ...(catalogTextStyles?.eyebrow ?? {}),
+      },
+      title: {
+        ...storefrontEditorDefaults.catalogTextStyles.title,
+        ...(catalogTextStyles?.title ?? {}),
+      },
+      description: {
+        ...storefrontEditorDefaults.catalogTextStyles.description,
+        ...(catalogTextStyles?.description ?? {}),
+      },
+      category: {
+        ...storefrontEditorDefaults.catalogTextStyles.category,
+        ...(catalogTextStyles?.category ?? {}),
+      },
+      cardTitle: {
+        ...storefrontEditorDefaults.catalogTextStyles.cardTitle,
+        ...(catalogTextStyles?.cardTitle ?? {}),
+      },
+      cardDescription: {
+        ...storefrontEditorDefaults.catalogTextStyles.cardDescription,
+        ...(catalogTextStyles?.cardDescription ?? {}),
+      },
+      price: {
+        ...storefrontEditorDefaults.catalogTextStyles.price,
+        ...(catalogTextStyles?.price ?? {}),
+      },
+      button: {
+        ...storefrontEditorDefaults.catalogTextStyles.button,
+        ...(catalogTextStyles?.button ?? {}),
+      },
+    },
+  };
+}
 
 type ProductEditorSubmission = {
   product: AdminProductInput;
@@ -1441,21 +2005,35 @@ function currencyInputToCents(value: string) {
 function TextAreaField({
   label,
   error,
+  hint,
   className,
   ...props
 }: TextareaHTMLAttributes<HTMLTextAreaElement> & {
   label: string;
   error?: string;
+  hint?: string;
 }) {
-  const errorId = error ? `${props.id ?? props.name}-error` : undefined;
+  const generatedId = useId();
+  const fieldId = props.id ?? generatedId;
+  const errorId = error ? `${fieldId}-error` : undefined;
+  const hintId = hint ? `${fieldId}-hint` : undefined;
+  const describedBy = [props["aria-describedby"], hintId, errorId]
+    .filter(Boolean)
+    .join(" ");
   return (
     <label className={`ds-field ${className ?? ""}`}>
       <span>{label}</span>
       <textarea
-        aria-invalid={Boolean(error)}
-        aria-describedby={errorId}
         {...props}
+        id={fieldId}
+        aria-invalid={Boolean(error)}
+        aria-describedby={describedBy || undefined}
       />
+      {hint ? (
+        <small className="ds-field__hint" id={hintId}>
+          {hint}
+        </small>
+      ) : null}
       {error ? <small id={errorId}>{error}</small> : null}
     </label>
   );
@@ -1893,6 +2471,7 @@ function ProductEditor({
               />
               <TextAreaField
                 label="Descricao completa"
+                hint={`O card exibe ate ${productCardDescriptionMaxLength} caracteres. Para criar topicos curtos, inicie cada linha com °, •, - ou *.`}
                 required
                 minLength={20}
                 rows={5}
@@ -1911,7 +2490,7 @@ function ProductEditor({
         >
           <div className="product-editor__preview-media">
             {form.imageUrl ? (
-              <img src={form.imageUrl} alt="" />
+              <img src={adminMediaUrl(form.imageUrl)} alt="" />
             ) : (
               <ImageIcon size={32} />
             )}
@@ -1927,8 +2506,10 @@ function ProductEditor({
             </div>
             <h3>{form.name || "Nome do produto"}</h3>
             <p className="product-editor__preview-description">
-              {form.description ||
-                "Descricao breve do produto para revisar o card antes de salvar."}
+              {formatProductCardDescription(
+                form.description ||
+                  "Descricao breve do produto para revisar o card antes de salvar.",
+              )}
             </p>
             <div className="product-editor__preview-footer">
               <strong>{formatMoney(payloadPreviewPrice)}</strong>
@@ -2019,9 +2600,7 @@ function ProductsTable({
             <th className="selection-cell" scope="col">
               <SelectionCheckbox
                 checked={allVisibleSelected}
-                indeterminate={
-                  selectedVisibleCount > 0 && !allVisibleSelected
-                }
+                indeterminate={selectedVisibleCount > 0 && !allVisibleSelected}
                 label="Selecionar produtos exibidos"
                 onChange={onToggleSelectAll}
               />
@@ -2047,7 +2626,7 @@ function ProductsTable({
               </td>
               <td data-label="Produto">
                 <div className="product-cell">
-                  <img src={product.imageUrl} alt="" />
+                  <img src={adminMediaUrl(product.imageUrl)} alt="" />
                   <span>
                     <strong>{product.name}</strong>
                     <small>{product.sku}</small>
@@ -2336,7 +2915,7 @@ function TextStyleControls({
         />
         <SelectField
           label="Fonte do texto"
-          value={value.fontFamily}
+          value={editableTextFontValue(value.fontFamily)}
           onChange={(event) =>
             onChange({
               ...value,
@@ -2345,11 +2924,11 @@ function TextStyleControls({
             })
           }
         >
-          <option value="inherit">Padrao deste bloco</option>
-          <option value="display">Editorial da marca</option>
-          <option value="body">Leitura da marca</option>
-          <option value="modern">Sans moderna</option>
-          <option value="classic">Serif classica</option>
+          {storefrontTextFontOptions.map(([font, label]) => (
+            <option key={font} value={font}>
+              {label}
+            </option>
+          ))}
         </SelectField>
       </div>
     </fieldset>
@@ -2357,9 +2936,17 @@ function TextStyleControls({
 }
 
 type AppearanceTab =
-  "brand" | "content" | "composition" | "motion" | "footer" | "seo";
+  | "brand"
+  | "header"
+  | "content"
+  | "composition"
+  | "catalog"
+  | "reviews"
+  | "footer"
+  | "seo"
+  | "motion";
 type PreviewDevice = "desktop" | "tablet" | "mobile";
-type PreviewLocation = "top" | "footer";
+type PreviewLocation = "top" | "catalog" | "reviews" | "footer";
 
 function PreviewBrandLogo({
   fallbackText,
@@ -2371,10 +2958,11 @@ function PreviewBrandLogo({
   const markRef = useRef<HTMLSpanElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  const previewSrc = adminMediaUrl(src);
   const canInspectPixels =
-    src.startsWith("data:") ||
-    src.startsWith("blob:") ||
-    src.includes("/uploads/");
+    previewSrc.startsWith("data:") ||
+    previewSrc.startsWith("blob:") ||
+    previewSrc.includes("/uploads/");
 
   useEffect(() => {
     const mark = markRef.current;
@@ -2395,7 +2983,7 @@ function PreviewBrandLogo({
       }
     }
     return () => observer.disconnect();
-  }, [canInspectPixels, src]);
+  }, [canInspectPixels, previewSrc]);
 
   const handleLoad = (event: SyntheticEvent<HTMLImageElement>) => {
     setLoadFailed(false);
@@ -2413,7 +3001,7 @@ function PreviewBrandLogo({
         ref={imageRef}
         alt=""
         crossOrigin={canInspectPixels ? "anonymous" : undefined}
-        src={src}
+        src={previewSrc}
         onError={() => setLoadFailed(true)}
         onLoad={handleLoad}
       />
@@ -2437,20 +3025,9 @@ const storefrontPreviewAppliedType = "bespoke:storefront-preview-applied";
 const storefrontPreviewErrorType = "bespoke:storefront-preview-error";
 const storefrontPreviewLocationType = "bespoke:storefront-preview-location";
 
-function resolveStorefrontPreviewUrl(publicWebUrl?: string) {
-  const configured =
-    publicWebUrl?.trim() || import.meta.env.VITE_STOREFRONT_PREVIEW_URL?.trim();
-  const previewUrl = configured
-    ? new URL(configured, window.location.origin)
-    : new URL(window.location.origin);
-
-  if (!configured && previewUrl.port === "5174") previewUrl.port = "5173";
-  previewUrl.searchParams.set("storefront-preview", "admin");
-  return previewUrl.toString();
-}
-
 function StorefrontLivePreview({
   device,
+  focusLocation,
   form,
   publicWebUrl,
   replayKey,
@@ -2458,6 +3035,7 @@ function StorefrontLivePreview({
   onReplay,
 }: {
   device: PreviewDevice;
+  focusLocation: PreviewLocation;
   form: StorefrontSettings;
   publicWebUrl?: string;
   replayKey: number;
@@ -2467,25 +3045,90 @@ function StorefrontLivePreview({
   const frameHostRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const previewUrl = useMemo(
-    () => resolveStorefrontPreviewUrl(publicWebUrl),
+    () =>
+      resolveStorefrontPreviewUrl(
+        publicWebUrl,
+        import.meta.env.VITE_STOREFRONT_PREVIEW_URL,
+        window.location.href,
+      ),
     [publicWebUrl],
   );
   const [scale, setScale] = useState(0.25);
   const [status, setStatus] = useState<
-    "connecting" | "syncing" | "synced" | "invalid"
+    "connecting" | "syncing" | "synced" | "invalid" | "unavailable"
   >("connecting");
+  const [previewDocument, setPreviewDocument] = useState<string | null>(null);
+  const [previewDocumentState, setPreviewDocumentState] = useState<
+    "direct" | "loading" | "ready" | "error"
+  >("direct");
   const [previewLocation, setPreviewLocation] =
     useState<PreviewLocation>("top");
   const configuration = previewDevices[device];
-  const previewOrigin = new URL(previewUrl).origin;
+  const previewOrigin = previewUrl ? new URL(previewUrl).origin : null;
+  const embeddedPreview = Boolean(
+    previewUrl &&
+      shouldEmbedStorefrontPreview(previewUrl, window.location.href),
+  );
+
+  useEffect(() => {
+    setPreviewDocument(null);
+    if (!previewUrl || !embeddedPreview) {
+      setPreviewDocumentState("direct");
+      return;
+    }
+
+    const controller = new AbortController();
+    setPreviewDocumentState("loading");
+    setStatus("connecting");
+    void fetch(previewUrl, {
+      cache: "no-store",
+      credentials: "omit",
+      headers: { "ngrok-skip-browser-warning": "bespoke-admin-preview" },
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("STOREFRONT_DOCUMENT_UNAVAILABLE");
+        const contentType = response.headers.get("content-type") ?? "";
+        if (!contentType.includes("text/html")) {
+          throw new Error("STOREFRONT_DOCUMENT_INVALID");
+        }
+        return createStorefrontPreviewDocument(
+          await response.text(),
+          previewUrl,
+        );
+      })
+      .then((document) => {
+        if (controller.signal.aborted) return;
+        setPreviewDocument(document);
+        setPreviewDocumentState("ready");
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        setPreviewDocumentState("error");
+        setStatus("unavailable");
+        if (import.meta.env.DEV) console.error(error);
+      });
+
+    return () => controller.abort();
+  }, [embeddedPreview, previewUrl, replayKey]);
 
   const navigatePreview = (location: PreviewLocation) => {
     setPreviewLocation(location);
+    if (!previewOrigin) return;
     iframeRef.current?.contentWindow?.postMessage(
       { type: storefrontPreviewLocationType, location },
       previewOrigin,
     );
   };
+
+  useEffect(() => {
+    setPreviewLocation(focusLocation);
+    if (!previewOrigin) return;
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: storefrontPreviewLocationType, location: focusLocation },
+      previewOrigin,
+    );
+  }, [focusLocation, previewOrigin]);
 
   useEffect(() => {
     const host = frameHostRef.current;
@@ -2504,6 +3147,11 @@ function StorefrontLivePreview({
   }, [configuration.width]);
 
   useEffect(() => {
+    if (!previewOrigin) {
+      setStatus("unavailable");
+      return;
+    }
+
     const handleMessage = (event: MessageEvent<unknown>) => {
       if (event.source !== iframeRef.current?.contentWindow) return;
       if (event.origin !== previewOrigin) return;
@@ -2535,6 +3183,21 @@ function StorefrontLivePreview({
   }, [form, previewLocation, previewOrigin]);
 
   useEffect(() => {
+    if (!previewUrl) return;
+
+    setStatus("connecting");
+    const timeout = window.setTimeout(() => {
+      setStatus((current) =>
+        current === "synced" || current === "invalid"
+          ? current
+          : "unavailable",
+      );
+    }, 20_000);
+    return () => window.clearTimeout(timeout);
+  }, [previewUrl, replayKey]);
+
+  useEffect(() => {
+    if (!previewOrigin) return;
     const iframeWindow = iframeRef.current?.contentWindow;
     if (!iframeWindow) return;
     setStatus("syncing");
@@ -2546,9 +3209,9 @@ function StorefrontLivePreview({
 
   const scaledWidth = configuration.width * scale;
   const visibleHeight =
-    previewLocation === "footer"
-      ? Math.min(configuration.height, device === "desktop" ? 360 : 440)
-      : configuration.height;
+    previewLocation === "top" || previewLocation === "catalog"
+      ? configuration.height
+      : Math.min(configuration.height, device === "desktop" ? 420 : 500);
   const scaledHeight = visibleHeight * scale;
 
   return (
@@ -2561,7 +3224,16 @@ function StorefrontLivePreview({
         <div className="storefront-live-preview__title">
           <Eye aria-hidden="true" size={16} />
           <div>
-            <strong>Home em tempo real</strong>
+            <strong>
+              {previewLocation === "catalog"
+                ? "Catalogo"
+                : previewLocation === "reviews"
+                  ? "Avaliacoes"
+                  : previewLocation === "footer"
+                    ? "Rodape"
+                    : "Home"}{" "}
+              em tempo real
+            </strong>
             <span>
               {configuration.label} {configuration.width} x{" "}
               {configuration.height}
@@ -2607,6 +3279,10 @@ function StorefrontLivePreview({
           ? "Alteracoes locais sincronizadas"
           : status === "invalid"
             ? "Revise os campos invalidos para atualizar"
+            : status === "unavailable"
+              ? previewUrl
+                ? "Nao foi possivel carregar a pagina publica"
+                : "URL publica indisponivel"
             : "Atualizando preview"}
       </div>
       <div className="storefront-live-preview__location-bar">
@@ -2623,6 +3299,24 @@ function StorefrontLivePreview({
           >
             <ArrowUp aria-hidden="true" size={15} />
             Topo
+          </button>
+          <button
+            aria-pressed={previewLocation === "catalog"}
+            className={previewLocation === "catalog" ? "is-active" : undefined}
+            type="button"
+            onClick={() => navigatePreview("catalog")}
+          >
+            <ShoppingBag aria-hidden="true" size={15} />
+            Catalogo
+          </button>
+          <button
+            aria-pressed={previewLocation === "reviews"}
+            className={previewLocation === "reviews" ? "is-active" : undefined}
+            type="button"
+            onClick={() => navigatePreview("reviews")}
+          >
+            <Star aria-hidden="true" size={15} />
+            Avaliacoes
           </button>
           <button
             aria-pressed={previewLocation === "footer"}
@@ -2653,32 +3347,53 @@ function StorefrontLivePreview({
               width: `${configuration.width}px`,
             }}
           >
-            <iframe
-              key={replayKey}
-              ref={iframeRef}
-              data-preview-device={device}
-              height={configuration.height}
-              loading="eager"
-              referrerPolicy="same-origin"
-              sandbox="allow-same-origin allow-scripts"
-              src={previewUrl}
-              title={`Preview da Home em ${configuration.label}`}
-              width={configuration.width}
-              onLoad={() => {
-                setStatus("syncing");
-                iframeRef.current?.contentWindow?.postMessage(
-                  { type: storefrontPreviewMessageType, settings: form },
-                  previewOrigin,
-                );
-                iframeRef.current?.contentWindow?.postMessage(
-                  {
-                    type: storefrontPreviewLocationType,
-                    location: previewLocation,
-                  },
-                  previewOrigin,
-                );
-              }}
-            />
+            {previewUrl &&
+            previewOrigin &&
+            (!embeddedPreview || previewDocumentState === "ready") ? (
+              <iframe
+                key={replayKey}
+                ref={iframeRef}
+                data-preview-device={device}
+                height={configuration.height}
+                loading="eager"
+                referrerPolicy="same-origin"
+                sandbox="allow-same-origin allow-scripts"
+                src={embeddedPreview ? undefined : previewUrl}
+                srcDoc={embeddedPreview ? previewDocument ?? undefined : undefined}
+                title={`Preview da Home em ${configuration.label}`}
+                width={configuration.width}
+                onLoad={() => {
+                  setStatus("syncing");
+                  iframeRef.current?.contentWindow?.postMessage(
+                    { type: storefrontPreviewMessageType, settings: form },
+                    previewOrigin,
+                  );
+                  iframeRef.current?.contentWindow?.postMessage(
+                    {
+                      type: storefrontPreviewLocationType,
+                      location: previewLocation,
+                    },
+                    previewOrigin,
+                  );
+                }}
+              />
+            ) : previewDocumentState === "loading" ? (
+              <div className="storefront-live-preview__unavailable" role="status">
+                <RefreshCw aria-hidden="true" size={28} />
+                <strong>Preparando preview</strong>
+                <span>Carregando a pagina publica desta loja.</span>
+              </div>
+            ) : (
+              <div className="storefront-live-preview__unavailable" role="alert">
+                <EyeOff aria-hidden="true" size={28} />
+                <strong>Preview indisponivel</strong>
+                <span>
+                  {previewDocumentState === "error"
+                    ? "Nao foi possivel preparar a pagina publica. Tente recarregar o preview."
+                    : "A URL publica desta loja nao foi informada pela API."}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -2697,6 +3412,15 @@ const appearanceTabs = [
     icon: Store,
   },
   {
+    id: "header",
+    label: "Cabecalho",
+    description: "Cores, logo, navegacao e botoes",
+    guidance:
+      "Personalize o cabecalho de forma independente. As escolhas desta etapa nao alteram a Home, o Catalogo ou o Rodape.",
+    level: "Essencial",
+    icon: PanelTop,
+  },
+  {
     id: "content",
     label: "Capa e textos",
     description: "Hero, manifesto e chamadas",
@@ -2713,6 +3437,24 @@ const appearanceTabs = [
       "Organize cores, espacamento, cards e secoes. Aqui fica o desenho geral da vitrine sem mexer nos dados de produto.",
     level: "Essencial",
     icon: Palette,
+  },
+  {
+    id: "catalog",
+    label: "Catalogo",
+    description: "Textos, paleta, cards e grade",
+    guidance:
+      "Ajuste a pagina de Catalogo em um escopo proprio. A paleta e a tipografia daqui prevalecem somente no Catalogo.",
+    level: "Essencial",
+    icon: ShoppingBag,
+  },
+  {
+    id: "reviews",
+    label: "Avaliacoes",
+    description: "Relatos reais e carrossel",
+    guidance:
+      "Cadastre apenas avaliacoes reais e autorizadas. Ajuste leitura, ritmo e cores sem duplicar conteudo para tecnologias assistivas.",
+    level: "Essencial",
+    icon: Star,
   },
   {
     id: "footer",
@@ -2750,6 +3492,135 @@ const appearanceTabs = [
   icon: typeof Store;
 }>;
 
+const appearanceTabSettingKeys = {
+  brand: [
+    "brandName",
+    "legalName",
+    "logoUrl",
+    "logoOnDarkUrl",
+    "storefrontFont",
+    "adminFont",
+  ],
+  header: [
+    "headerBackgroundColor",
+    "headerTextColor",
+    "headerAccentColor",
+    "headerButtonMode",
+    "headerButtonBackgroundColor",
+    "headerButtonTextColor",
+    "headerFontFamily",
+    "headerNavFontSize",
+    "headerButtonFontSize",
+    "headerHeight",
+    "headerLogoWidth",
+    "headerButtonStyle",
+    "headerButtonRadius",
+    "headerBorderColor",
+    "headerBorderWidth",
+    "headerShadow",
+    "headerSticky",
+  ],
+  content: [
+    "heroImageUrl",
+    "heroEyebrow",
+    "heroTitle",
+    "manifestoItems",
+    "manifestoMaxWidth",
+    "featuredEyebrow",
+    "featuredTitle",
+    "featuredLinkLabel",
+    "featuredAddButtonLabel",
+    "featuredAddedButtonLabel",
+    "editorialCatalogLabel",
+    "editorialSupportLabel",
+    "editorialOrdersLabel",
+    "editorialAccountLabel",
+  ],
+  composition: [
+    "homeLayout",
+    "productCardStyle",
+    "imageFit",
+    "homeSections",
+    "homeSectionSpacing",
+    "homeTransitionPreset",
+    "homeTransitionOverlap",
+    "homeTransitionOpacity",
+    "homeDepthIntensity",
+    "manifestoDivider",
+    "manifestoDividerMobileEnabled",
+    "editorialNavigationMobileEnabled",
+    "primaryColor",
+    "accentColor",
+    "backgroundColor",
+    "homeSurfaceColor",
+    "homeAlternateColor",
+    "homeSecondaryTextColor",
+    "homeBorderColor",
+    "homeShadowColor",
+    "homeTransitionStartColor",
+    "homeTransitionEndColor",
+  ],
+  catalog: [
+    "catalogEyebrow",
+    "catalogTitle",
+    "catalogDescription",
+    "catalogDensity",
+    "catalogBackgroundColor",
+    "catalogSurfaceColor",
+    "catalogTextColor",
+    "catalogSecondaryTextColor",
+    "catalogAccentColor",
+    "catalogBorderColor",
+    "catalogButtonBackgroundColor",
+    "catalogButtonTextColor",
+    "catalogCardStyle",
+    "catalogImageFit",
+    "catalogImageRatio",
+    "catalogButtonStyle",
+    "catalogCardRadius",
+    "catalogColumnsDesktop",
+    "catalogColumnsTablet",
+    "catalogColumnsMobile",
+    "catalogTextStyles",
+  ],
+  reviews: [
+    "reviewsEnabled",
+    "reviewsEyebrow",
+    "reviewsTitle",
+    "reviewsItems",
+    "reviewsSpeedSeconds",
+    "reviewsBackgroundColor",
+    "reviewsCardColor",
+  ],
+  footer: [
+    "footerSlogan",
+    "footerShowBrandName",
+    "footerHeading",
+    "footerServiceHeading",
+    "footerServiceLineOne",
+    "footerServiceLineTwo",
+    "footerWhatsappButtonLabel",
+    "footerWhatsappLinkLabel",
+    "footerCopyrightText",
+    "footerSecurityText",
+    "footerLinks",
+    "footerColor",
+  ],
+  seo: [
+    "defaultMetaTitle",
+    "defaultMetaDescription",
+    "faviconUrl",
+    "socialImageUrl",
+    "contactEmail",
+  ],
+  motion: [
+    "homeMotionEnabled",
+    "homeMotionPreset",
+    "homeMotionByBlock",
+    "homeMotionIntensity",
+  ],
+} satisfies Record<AppearanceTab, Array<keyof StorefrontSettings>>;
+
 const homeSectionLabels: Record<
   StorefrontSettings["homeSections"][number]["id"],
   string
@@ -2779,6 +3650,10 @@ const motionBlockLabels: Record<
     title: "Cards de produtos",
     description: "Entrada coordenada dos itens em destaque.",
   },
+  reviews: {
+    title: "Avaliacoes",
+    description: "Cabecalho e entrada do carrossel continuo.",
+  },
   footer: {
     title: "Rodape",
     description: "Marca, slogan, links e redes sociais.",
@@ -2795,15 +3670,38 @@ const motionPresetOptions = [
   ["static", "Sem movimento"],
 ] as const;
 
-function textFontCssValue(font: StorefrontTextStyle["fontFamily"]) {
+const storefrontTextFontOptions = [
+  ["inherit", "Padrao deste elemento"],
+  ["modern", "Sans moderna"],
+  ["classic", "Serif classica"],
+  ["humanist", "Sans humanista"],
+  ["editorial", "Serif editorial"],
+] as const;
+
+function editableTextFontValue(font: StorefrontTextStyle["fontFamily"]) {
+  return font === "display" || font === "body" ? "inherit" : font;
+}
+
+function editableHeaderFontValue(font: StorefrontTextStyle["fontFamily"]) {
+  return font === "inherit" || font === "display" || font === "body"
+    ? "modern"
+    : font;
+}
+
+function textFontCssValue(
+  font: StorefrontTextStyle["fontFamily"],
+  inheritedFont = "inherit",
+) {
   const fonts = {
     inherit: "inherit",
     display: "var(--font-display)",
     body: "var(--font-body)",
     modern: 'Aptos, "Segoe UI", Arial, sans-serif',
     classic: 'Georgia, "Times New Roman", serif',
+    humanist: '"Trebuchet MS", "Segoe UI", sans-serif',
+    editorial: 'Palatino, "Palatino Linotype", "Book Antiqua", serif',
   } as const;
-  return fonts[font];
+  return font === "inherit" ? inheritedFont : fonts[font];
 }
 
 function StorefrontEditor({
@@ -2819,18 +3717,74 @@ function StorefrontEditor({
   error?: string;
   onSubmit: (payload: StorefrontSettings) => void;
 }) {
-  const [form, setForm] = useState<StorefrontSettings>({
-    ...storefrontEditorDefaults,
-    ...initial,
-  });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const initialTab = appearanceTabs.some((tab) => tab.id === requestedTab)
+    ? (requestedTab as AppearanceTab)
+    : "brand";
+  const [form, setForm] = useState<StorefrontSettings>(() =>
+    normalizeStorefrontEditorInitial(initial),
+  );
   const [activeUploads, setActiveUploads] = useState<Record<string, boolean>>(
     {},
   );
-  const [activeTab, setActiveTab] = useState<AppearanceTab>("brand");
+  const [activeTab, setActiveTab] = useState<AppearanceTab>(initialTab);
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop");
   const [previewKey, setPreviewKey] = useState(0);
   const [heroMissing, setHeroMissing] = useState(false);
   const uploading = Object.values(activeUploads).some(Boolean);
+
+  useEffect(() => {
+    if (!requestedTab) return;
+    if (!appearanceTabs.some((tab) => tab.id === requestedTab)) return;
+    setActiveTab(requestedTab as AppearanceTab);
+  }, [requestedTab]);
+
+  function selectAppearanceTab(tab: AppearanceTab) {
+    setActiveTab(tab);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("tab", tab);
+    setSearchParams(nextParams, { replace: true });
+  }
+
+  function restoreActiveTab() {
+    setForm((current) => {
+      const defaults = structuredClone(storefrontEditorDefaults);
+      const restoredEntries = appearanceTabSettingKeys[activeTab].map((key) => [
+        key,
+        defaults[key],
+      ]);
+      const restored = {
+        ...current,
+        ...Object.fromEntries(restoredEntries),
+      } as StorefrontSettings;
+      const textStyleKeys =
+        activeTab === "content"
+          ? ([
+              "heroEyebrow",
+              "heroTitle",
+              "manifesto",
+              "featuredEyebrow",
+              "featuredTitle",
+            ] as const)
+          : activeTab === "composition"
+            ? (["navigation", "productCardTitle"] as const)
+            : activeTab === "reviews"
+              ? (["reviewsEyebrow", "reviewsTitle", "reviewsBody"] as const)
+              : activeTab === "footer"
+                ? (["footerSlogan"] as const)
+                : [];
+      if (textStyleKeys.length) {
+        restored.homeTextStyles = { ...current.homeTextStyles };
+        for (const key of textStyleKeys) {
+          restored.homeTextStyles[key] = {
+            ...defaults.homeTextStyles[key],
+          };
+        }
+      }
+      return restored;
+    });
+  }
 
   function trackUpload(key: string, active: boolean) {
     setActiveUploads((current) => ({ ...current, [key]: active }));
@@ -2873,6 +3827,19 @@ function StorefrontEditor({
     }));
   }
 
+  function updateCatalogTextStyle(
+    key: keyof StorefrontSettings["catalogTextStyles"],
+    value: StorefrontTextStyle,
+  ) {
+    setForm((current) => ({
+      ...current,
+      catalogTextStyles: {
+        ...current.catalogTextStyles,
+        [key]: value,
+      },
+    }));
+  }
+
   function moveManifestoItem(index: number, direction: -1 | 1) {
     setForm((current) => {
       const target = index + direction;
@@ -2881,6 +3848,29 @@ function StorefrontEditor({
       const [item] = manifestoItems.splice(index, 1);
       manifestoItems.splice(target, 0, item!);
       return { ...current, manifestoItems };
+    });
+  }
+
+  function updateReviewItem(
+    id: string,
+    changes: Partial<StorefrontSettings["reviewsItems"][number]>,
+  ) {
+    setForm((current) => ({
+      ...current,
+      reviewsItems: current.reviewsItems.map((item) =>
+        item.id === id ? { ...item, ...changes } : item,
+      ),
+    }));
+  }
+
+  function moveReviewItem(index: number, direction: -1 | 1) {
+    setForm((current) => {
+      const target = index + direction;
+      if (target < 0 || target >= current.reviewsItems.length) return current;
+      const reviewsItems = [...current.reviewsItems];
+      const [item] = reviewsItems.splice(index, 1);
+      reviewsItems.splice(target, 0, item!);
+      return { ...current, reviewsItems };
     });
   }
 
@@ -2948,15 +3938,10 @@ function StorefrontEditor({
             type="button"
             variant="secondary"
             disabled={uploading || saving}
-            onClick={() =>
-              setForm({
-                ...storefrontEditorDefaults,
-                footerLinks: defaultFooterLinks.map((link) => ({ ...link })),
-              })
-            }
+            onClick={restoreActiveTab}
           >
             <RotateCcw size={16} />
-            Restaurar base
+            Restaurar esta etapa
           </Button>
         </div>
         <div className="appearance-guide" aria-live="polite">
@@ -2996,11 +3981,9 @@ function StorefrontEditor({
                 key={tab.id}
                 role="tab"
                 type="button"
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => selectAppearanceTab(tab.id)}
               >
-                <span className="appearance-tabs__index">
-                  {index + 1}
-                </span>
+                <span className="appearance-tabs__index">{index + 1}</span>
                 <span className="appearance-tabs__copy">
                   <strong>
                     <Icon aria-hidden="true" size={16} />
@@ -3081,6 +4064,223 @@ function StorefrontEditor({
           </div>
         </section>
         <section
+          aria-labelledby="appearance-tab-header"
+          className="editor-section"
+          hidden={activeTab !== "header"}
+          id="appearance-panel-header"
+          role="tabpanel"
+        >
+          <div className="editor-section__title">
+            <Palette size={18} />
+            <h3>Cores do cabecalho</h3>
+          </div>
+          <p className="editor-section__hint">
+            Os textos usam exatamente a cor escolhida. No modo automatico, os
+            botoes continuam protegendo o contraste para manter boa leitura;
+            em cores manuais, revise a legibilidade no preview.
+          </p>
+          <div className="editor-form__grid color-controls">
+            <HexColorField
+              label="Fundo do cabecalho"
+              required
+              value={form.headerBackgroundColor}
+              onChange={(headerBackgroundColor) =>
+                setForm({ ...form, headerBackgroundColor })
+              }
+            />
+            <HexColorField
+              label="Textos do cabecalho"
+              required
+              value={form.headerTextColor}
+              onChange={(headerTextColor) =>
+                setForm({ ...form, headerTextColor })
+              }
+            />
+            <HexColorField
+              label="Destaque do cabecalho"
+              required
+              value={form.headerAccentColor}
+              onChange={(headerAccentColor) =>
+                setForm({ ...form, headerAccentColor })
+              }
+            />
+            <SelectField
+              label="Cores dos botoes"
+              value={form.headerButtonMode}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  headerButtonMode: event.target
+                    .value as StorefrontSettings["headerButtonMode"],
+                })
+              }
+            >
+              <option value="automatic">Adaptar automaticamente</option>
+              <option value="custom">Personalizar manualmente</option>
+            </SelectField>
+            <HexColorField
+              disabled={form.headerButtonMode === "automatic"}
+              label="Fundo dos botoes do cabecalho"
+              required={form.headerButtonMode === "custom"}
+              value={form.headerButtonBackgroundColor}
+              onChange={(headerButtonBackgroundColor) =>
+                setForm({ ...form, headerButtonBackgroundColor })
+              }
+            />
+            <HexColorField
+              disabled={form.headerButtonMode === "automatic"}
+              label="Texto dos botoes do cabecalho"
+              required={form.headerButtonMode === "custom"}
+              value={form.headerButtonTextColor}
+              onChange={(headerButtonTextColor) =>
+                setForm({ ...form, headerButtonTextColor })
+              }
+            />
+          </div>
+        </section>
+        <section className="editor-section" hidden={activeTab !== "header"}>
+          <div className="editor-section__title">
+            <Type size={18} />
+            <h3>Tipografia e dimensoes</h3>
+          </div>
+          <p className="editor-section__hint">
+            Estes valores sao exclusivos do cabecalho e prevalecem sobre a fonte
+            geral da vitrine.
+          </p>
+          <div className="editor-form__grid">
+            <SelectField
+              label="Fonte do cabecalho"
+              value={editableHeaderFontValue(form.headerFontFamily)}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  headerFontFamily: event.target
+                    .value as StorefrontSettings["headerFontFamily"],
+                })
+              }
+            >
+              <option value="modern">Sans moderna</option>
+              <option value="classic">Serif classica</option>
+              <option value="humanist">Sans humanista</option>
+              <option value="editorial">Serif editorial</option>
+            </SelectField>
+            <FontSizeControl
+              label="Tamanho dos links"
+              max={20}
+              min={12}
+              suffix="px"
+              value={form.headerNavFontSize}
+              onChange={(headerNavFontSize) =>
+                setForm({ ...form, headerNavFontSize })
+              }
+            />
+            <FontSizeControl
+              label="Tamanho do texto dos botoes"
+              max={20}
+              min={12}
+              suffix="px"
+              value={form.headerButtonFontSize}
+              onChange={(headerButtonFontSize) =>
+                setForm({ ...form, headerButtonFontSize })
+              }
+            />
+            <FontSizeControl
+              label="Altura do cabecalho"
+              max={96}
+              min={56}
+              suffix="px"
+              value={form.headerHeight}
+              onChange={(headerHeight) => setForm({ ...form, headerHeight })}
+            />
+            <FontSizeControl
+              label="Largura maxima da logo"
+              max={360}
+              min={140}
+              suffix="px"
+              value={form.headerLogoWidth}
+              onChange={(headerLogoWidth) =>
+                setForm({ ...form, headerLogoWidth })
+              }
+            />
+          </div>
+        </section>
+        <section className="editor-section" hidden={activeTab !== "header"}>
+          <div className="editor-section__title">
+            <PanelTop size={18} />
+            <h3>Acabamento e comportamento</h3>
+          </div>
+          <div className="editor-form__grid">
+            <SelectField
+              label="Visual dos botoes"
+              value={form.headerButtonStyle}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  headerButtonStyle: event.target
+                    .value as StorefrontSettings["headerButtonStyle"],
+                })
+              }
+            >
+              <option value="solid">Preenchido</option>
+              <option value="outline">Contorno</option>
+              <option value="minimal">Minimalista</option>
+            </SelectField>
+            <FontSizeControl
+              label="Arredondamento dos botoes"
+              max={24}
+              min={0}
+              suffix="px"
+              value={form.headerButtonRadius}
+              onChange={(headerButtonRadius) =>
+                setForm({ ...form, headerButtonRadius })
+              }
+            />
+            <HexColorField
+              label="Cor da borda do cabecalho"
+              required
+              value={form.headerBorderColor}
+              onChange={(headerBorderColor) =>
+                setForm({ ...form, headerBorderColor })
+              }
+            />
+            <FontSizeControl
+              label="Espessura da borda"
+              max={3}
+              min={0}
+              suffix="px"
+              value={form.headerBorderWidth}
+              onChange={(headerBorderWidth) =>
+                setForm({ ...form, headerBorderWidth })
+              }
+            />
+            <SelectField
+              label="Sombra ao rolar"
+              value={form.headerShadow}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  headerShadow: event.target
+                    .value as StorefrontSettings["headerShadow"],
+                })
+              }
+            >
+              <option value="none">Sem sombra</option>
+              <option value="subtle">Sutil</option>
+              <option value="pronounced">Destacada</option>
+            </SelectField>
+            <label className="visibility-control">
+              <input
+                checked={form.headerSticky}
+                type="checkbox"
+                onChange={(event) =>
+                  setForm({ ...form, headerSticky: event.target.checked })
+                }
+              />
+              <span>Manter cabecalho fixo durante a rolagem</span>
+            </label>
+          </div>
+        </section>
+        <section
           aria-labelledby="appearance-tab-brand"
           className="editor-section"
           hidden={activeTab !== "brand"}
@@ -3109,6 +4309,8 @@ function StorefrontEditor({
               <option value="signature">Assinatura - sofisticada</option>
               <option value="modern">Moderna - direta</option>
               <option value="classic">Classica - acolhedora</option>
+              <option value="humanist">Humanista - proxima</option>
+              <option value="editorial">Editorial - expressiva</option>
             </SelectField>
             <SelectField
               label="Fonte do painel admin"
@@ -3124,6 +4326,8 @@ function StorefrontEditor({
               <option value="signature">Assinatura - equilibrada</option>
               <option value="modern">Moderna - compacta</option>
               <option value="classic">Classica - tradicional</option>
+              <option value="humanist">Humanista - acessivel</option>
+              <option value="editorial">Editorial - autoral</option>
             </SelectField>
           </div>
         </section>
@@ -3349,6 +4553,42 @@ function StorefrontEditor({
                     <option value="standard">Padrao</option>
                     <option value="strong">Forte</option>
                   </SelectField>
+                  <SelectField
+                    label={`Fonte do bloco ${index + 1}`}
+                    value={editableTextFontValue(item.fontFamily)}
+                    onChange={(event) =>
+                      updateManifestoItem(item.id, {
+                        fontFamily: event.target
+                          .value as StorefrontSettings["manifestoItems"][number]["fontFamily"],
+                      })
+                    }
+                  >
+                    <option value="inherit">Herdar estilo do manifesto</option>
+                    <option value="modern">Sans moderna</option>
+                    <option value="classic">Serif classica</option>
+                    <option value="humanist">Sans humanista</option>
+                    <option value="editorial">Serif editorial</option>
+                  </SelectField>
+                  <FontSizeControl
+                    label={`Tamanho do bloco ${index + 1}`}
+                    max={96}
+                    min={0}
+                    suffix={item.fontSize === 0 ? " (automatico)" : "px"}
+                    value={item.fontSize}
+                    onChange={(fontSize) =>
+                      updateManifestoItem(item.id, { fontSize })
+                    }
+                  />
+                  <FontSizeControl
+                    label={`Espaco depois do bloco ${index + 1}`}
+                    max={120}
+                    min={12}
+                    suffix="px"
+                    value={item.spacingAfter}
+                    onChange={(spacingAfter) =>
+                      updateManifestoItem(item.id, { spacingAfter })
+                    }
+                  />
                   <label className="visibility-control">
                     <input
                       checked={item.enabled}
@@ -3389,6 +4629,9 @@ function StorefrontEditor({
                     enabled: true,
                     alignment: "center",
                     emphasis: "standard",
+                    fontFamily: "inherit",
+                    fontSize: 0,
+                    spacingAfter: 40,
                   },
                 ],
               }))
@@ -3507,6 +4750,574 @@ function StorefrontEditor({
               onChange={(value) => updateTextStyle("featuredTitle", value)}
             />
           </div>
+        </section>
+        <section
+          aria-labelledby="appearance-tab-catalog"
+          className="editor-section"
+          hidden={activeTab !== "catalog"}
+          id="appearance-panel-catalog"
+          role="tabpanel"
+        >
+          <div className="editor-section__title">
+            <Type size={18} />
+            <h3>Conteudo do catalogo</h3>
+          </div>
+          <p className="editor-section__hint">
+            Estes textos aparecem somente na abertura da pagina de Catalogo.
+          </p>
+          <div className="editor-form__grid">
+            <TextField
+              label="Etiqueta do catalogo"
+              placeholder="Opcional"
+              value={form.catalogEyebrow}
+              onChange={(event) =>
+                setForm({ ...form, catalogEyebrow: event.target.value })
+              }
+            />
+            <TextField
+              label="Titulo do catalogo"
+              required
+              value={form.catalogTitle}
+              onChange={(event) =>
+                setForm({ ...form, catalogTitle: event.target.value })
+              }
+            />
+            <TextAreaField
+              label="Descricao do catalogo"
+              maxLength={220}
+              rows={3}
+              value={form.catalogDescription}
+              onChange={(event) =>
+                setForm({ ...form, catalogDescription: event.target.value })
+              }
+            />
+          </div>
+        </section>
+        <section className="editor-section" hidden={activeTab !== "catalog"}>
+          <div className="editor-section__title">
+            <Palette size={18} />
+            <h3>Paleta exclusiva do catalogo</h3>
+          </div>
+          <p className="editor-section__hint">
+            Estas cores nao alteram a Home, o Cabecalho, as Avaliacoes ou o
+            Rodape.
+          </p>
+          <div className="editor-form__grid color-controls">
+            <HexColorField
+              label="Fundo do catalogo"
+              required
+              value={form.catalogBackgroundColor}
+              onChange={(catalogBackgroundColor) =>
+                setForm({ ...form, catalogBackgroundColor })
+              }
+            />
+            <HexColorField
+              label="Superficie dos cards e filtros"
+              required
+              value={form.catalogSurfaceColor}
+              onChange={(catalogSurfaceColor) =>
+                setForm({ ...form, catalogSurfaceColor })
+              }
+            />
+            <HexColorField
+              label="Texto principal do catalogo"
+              required
+              value={form.catalogTextColor}
+              onChange={(catalogTextColor) =>
+                setForm({ ...form, catalogTextColor })
+              }
+            />
+            <HexColorField
+              label="Texto secundario do catalogo"
+              required
+              value={form.catalogSecondaryTextColor}
+              onChange={(catalogSecondaryTextColor) =>
+                setForm({ ...form, catalogSecondaryTextColor })
+              }
+            />
+            <HexColorField
+              label="Destaque do catalogo"
+              required
+              value={form.catalogAccentColor}
+              onChange={(catalogAccentColor) =>
+                setForm({ ...form, catalogAccentColor })
+              }
+            />
+            <HexColorField
+              label="Bordas do catalogo"
+              required
+              value={form.catalogBorderColor}
+              onChange={(catalogBorderColor) =>
+                setForm({ ...form, catalogBorderColor })
+              }
+            />
+            <HexColorField
+              label="Fundo dos botoes do catalogo"
+              required
+              value={form.catalogButtonBackgroundColor}
+              onChange={(catalogButtonBackgroundColor) =>
+                setForm({ ...form, catalogButtonBackgroundColor })
+              }
+            />
+            <HexColorField
+              label="Texto dos botoes do catalogo"
+              required
+              value={form.catalogButtonTextColor}
+              onChange={(catalogButtonTextColor) =>
+                setForm({ ...form, catalogButtonTextColor })
+              }
+            />
+          </div>
+        </section>
+        <section className="editor-section" hidden={activeTab !== "catalog"}>
+          <div className="editor-section__title">
+            <Type size={18} />
+            <h3>Tipografia do catalogo</h3>
+          </div>
+          <div className="text-style-group text-style-group--catalog">
+            <TextStyleControls
+              description="Chamada curta acima do titulo do Catalogo."
+              fallbackColor={form.catalogAccentColor}
+              fontSizeRange={{ min: 10, max: 22 }}
+              title="Etiqueta do catalogo"
+              value={form.catalogTextStyles.eyebrow}
+              onChange={(value) => updateCatalogTextStyle("eyebrow", value)}
+            />
+            <TextStyleControls
+              description="Titulo principal da pagina de Catalogo."
+              fallbackColor={form.catalogTextColor}
+              fontSizeRange={{ min: 28, max: 80 }}
+              title="Titulo do catalogo"
+              value={form.catalogTextStyles.title}
+              onChange={(value) => updateCatalogTextStyle("title", value)}
+            />
+            <TextStyleControls
+              description="Texto de apoio exibido na abertura do Catalogo."
+              fallbackColor={form.catalogSecondaryTextColor}
+              fontSizeRange={{ min: 13, max: 24 }}
+              title="Descricao do catalogo"
+              value={form.catalogTextStyles.description}
+              onChange={(value) => updateCatalogTextStyle("description", value)}
+            />
+            <TextStyleControls
+              description="Categoria exibida acima do nome de cada produto."
+              fallbackColor={form.catalogAccentColor}
+              fontSizeRange={{ min: 10, max: 18 }}
+              title="Categoria dos cards"
+              value={form.catalogTextStyles.category}
+              onChange={(value) => updateCatalogTextStyle("category", value)}
+            />
+            <TextStyleControls
+              description="Nome do produto nos cards do Catalogo."
+              fallbackColor={form.catalogTextColor}
+              fontSizeRange={{ min: 14, max: 32 }}
+              title="Titulo dos cards do catalogo"
+              value={form.catalogTextStyles.cardTitle}
+              onChange={(value) => updateCatalogTextStyle("cardTitle", value)}
+            />
+            <TextStyleControls
+              description="Resumo do produto nos cards do Catalogo."
+              fallbackColor={form.catalogSecondaryTextColor}
+              fontSizeRange={{ min: 12, max: 20 }}
+              title="Descricao dos cards"
+              value={form.catalogTextStyles.cardDescription}
+              onChange={(value) =>
+                updateCatalogTextStyle("cardDescription", value)
+              }
+            />
+            <TextStyleControls
+              description="Preco apresentado nos cards do Catalogo."
+              fallbackColor={form.catalogTextColor}
+              fontSizeRange={{ min: 16, max: 32 }}
+              title="Preco dos cards"
+              value={form.catalogTextStyles.price}
+              onChange={(value) => updateCatalogTextStyle("price", value)}
+            />
+            <TextStyleControls
+              description="Texto dos botoes de adicionar ao carrinho."
+              fallbackColor={form.catalogButtonTextColor}
+              fontSizeRange={{ min: 12, max: 20 }}
+              title="Texto dos botoes"
+              value={form.catalogTextStyles.button}
+              onChange={(value) => updateCatalogTextStyle("button", value)}
+            />
+          </div>
+        </section>
+        <section className="editor-section" hidden={activeTab !== "catalog"}>
+          <div className="editor-section__title">
+            <ShoppingBag size={18} />
+            <h3>Cards, imagens e grade</h3>
+          </div>
+          <div className="editor-form__grid">
+            <SelectField
+              label="Densidade do catalogo"
+              value={form.catalogDensity}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  catalogDensity: event.target
+                    .value as StorefrontSettings["catalogDensity"],
+                })
+              }
+            >
+              <option value="comfortable">Confortavel</option>
+              <option value="compact">Compacta</option>
+            </SelectField>
+            <SelectField
+              label="Estilo dos cards do catalogo"
+              value={form.catalogCardStyle}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  catalogCardStyle: event.target
+                    .value as StorefrontSettings["catalogCardStyle"],
+                })
+              }
+            >
+              <option value="minimal">Minimalista</option>
+              <option value="boutique">Boutique</option>
+              <option value="editorial">Editorial</option>
+            </SelectField>
+            <SelectField
+              label="Enquadramento das imagens do catalogo"
+              value={form.catalogImageFit}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  catalogImageFit: event.target
+                    .value as StorefrontSettings["catalogImageFit"],
+                })
+              }
+            >
+              <option value="contain">Produto inteiro</option>
+              <option value="cover">Preencher a area</option>
+            </SelectField>
+            <SelectField
+              label="Proporcao das imagens"
+              value={form.catalogImageRatio}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  catalogImageRatio: event.target
+                    .value as StorefrontSettings["catalogImageRatio"],
+                })
+              }
+            >
+              <option value="square">Quadrada</option>
+              <option value="portrait">Vertical</option>
+              <option value="landscape">Horizontal</option>
+            </SelectField>
+            <SelectField
+              label="Visual dos botoes do catalogo"
+              value={form.catalogButtonStyle}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  catalogButtonStyle: event.target
+                    .value as StorefrontSettings["catalogButtonStyle"],
+                })
+              }
+            >
+              <option value="solid">Preenchido</option>
+              <option value="outline">Contorno</option>
+              <option value="minimal">Minimalista</option>
+            </SelectField>
+            <FontSizeControl
+              label="Arredondamento dos cards"
+              max={16}
+              min={0}
+              suffix="px"
+              value={form.catalogCardRadius}
+              onChange={(catalogCardRadius) =>
+                setForm({ ...form, catalogCardRadius })
+              }
+            />
+            <SelectField
+              label="Colunas no desktop"
+              value={String(form.catalogColumnsDesktop)}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  catalogColumnsDesktop: Number(event.target.value) as 3 | 4,
+                })
+              }
+            >
+              <option value="3">3 produtos</option>
+              <option value="4">4 produtos</option>
+            </SelectField>
+            <SelectField
+              label="Colunas no tablet"
+              value={String(form.catalogColumnsTablet)}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  catalogColumnsTablet: Number(event.target.value) as 2 | 3,
+                })
+              }
+            >
+              <option value="2">2 produtos</option>
+              <option value="3">3 produtos</option>
+            </SelectField>
+            <SelectField
+              label="Colunas no celular"
+              value={String(form.catalogColumnsMobile)}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  catalogColumnsMobile: Number(event.target.value) as 1 | 2,
+                })
+              }
+            >
+              <option value="1">1 produto</option>
+              <option value="2">2 produtos</option>
+            </SelectField>
+          </div>
+        </section>
+        <section
+          aria-labelledby="appearance-tab-reviews"
+          className="editor-section"
+          hidden={activeTab !== "reviews"}
+          id="appearance-panel-reviews"
+          role="tabpanel"
+        >
+          <div className="editor-section__title">
+            <Star size={18} />
+            <h3>Avaliacoes da loja</h3>
+          </div>
+          <p className="editor-section__hint">
+            A secao aparece no final da Home somente quando estiver ativada e
+            possuir ao menos uma avaliacao preenchida e visivel.
+          </p>
+          <label className="visibility-control visibility-control--panel">
+            <input
+              checked={form.reviewsEnabled}
+              type="checkbox"
+              onChange={(event) =>
+                setForm({ ...form, reviewsEnabled: event.target.checked })
+              }
+            />
+            <span>Exibir avaliacoes na Home</span>
+          </label>
+          <div className="editor-form__grid">
+            <TextField
+              label="Etiqueta da secao"
+              placeholder="Opcional"
+              value={form.reviewsEyebrow}
+              onChange={(event) =>
+                setForm({ ...form, reviewsEyebrow: event.target.value })
+              }
+            />
+            <TextField
+              label="Titulo da secao"
+              placeholder="Opcional"
+              value={form.reviewsTitle}
+              onChange={(event) =>
+                setForm({ ...form, reviewsTitle: event.target.value })
+              }
+            />
+            <FontSizeControl
+              label="Duracao de uma volta"
+              max={80}
+              min={18}
+              suffix="s"
+              value={form.reviewsSpeedSeconds}
+              onChange={(reviewsSpeedSeconds) =>
+                setForm({ ...form, reviewsSpeedSeconds })
+              }
+            />
+            <HexColorField
+              label="Fundo da secao de avaliacoes"
+              required
+              value={form.reviewsBackgroundColor}
+              onChange={(reviewsBackgroundColor) =>
+                setForm({ ...form, reviewsBackgroundColor })
+              }
+            />
+            <HexColorField
+              label="Fundo dos cards de avaliacao"
+              required
+              value={form.reviewsCardColor}
+              onChange={(reviewsCardColor) =>
+                setForm({ ...form, reviewsCardColor })
+              }
+            />
+          </div>
+          <div className="text-style-group">
+            <TextStyleControls
+              description="Controla a chamada curta acima do titulo das avaliacoes."
+              fallbackColor={form.accentColor}
+              fontSizeRange={{ min: 10, max: 22 }}
+              title="Etiqueta das avaliacoes"
+              value={form.homeTextStyles.reviewsEyebrow}
+              onChange={(value) => updateTextStyle("reviewsEyebrow", value)}
+            />
+            <TextStyleControls
+              description="Define a hierarquia do titulo sem comprometer telas pequenas."
+              fallbackColor={form.primaryColor}
+              fontSizeRange={{ min: 24, max: 72 }}
+              title="Titulo das avaliacoes"
+              value={form.homeTextStyles.reviewsTitle}
+              onChange={(value) => updateTextStyle("reviewsTitle", value)}
+            />
+            <TextStyleControls
+              description="Ajusta o texto dos relatos; autoria e nota mantem hierarquia propria."
+              fallbackColor={form.homeSecondaryTextColor}
+              fontSizeRange={{ min: 14, max: 22 }}
+              title="Texto das avaliacoes"
+              value={form.homeTextStyles.reviewsBody}
+              onChange={(value) => updateTextStyle("reviewsBody", value)}
+            />
+          </div>
+        </section>
+        <section className="editor-section" hidden={activeTab !== "reviews"}>
+          <div className="footer-links-editor__header">
+            <div>
+              <strong>Relatos publicados</strong>
+              <span>
+                Cadastre apenas experiencias reais, verificaveis e autorizadas.
+              </span>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={form.reviewsItems.length >= 12 || saving}
+              onClick={() =>
+                setForm((current) => ({
+                  ...current,
+                  reviewsItems: [
+                    ...current.reviewsItems,
+                    {
+                      id: crypto.randomUUID(),
+                      author: "",
+                      context: "",
+                      content: "",
+                      rating: 5,
+                      enabled: true,
+                    },
+                  ],
+                }))
+              }
+            >
+              <Plus size={16} />
+              Nova avaliacao
+            </Button>
+          </div>
+          {form.reviewsItems.length ? (
+            <div className="reviews-editor" aria-live="polite">
+              {form.reviewsItems.map((item, index) => (
+                <article className="review-editor__item" key={item.id}>
+                  <div className="manifesto-editor__header">
+                    <div>
+                      <span>{index + 1}</span>
+                      <strong>Avaliacao {index + 1}</strong>
+                    </div>
+                    <div className="manifesto-editor__actions">
+                      <IconButton
+                        label={`Mover avaliacao ${index + 1} para cima`}
+                        type="button"
+                        disabled={index === 0 || saving}
+                        onClick={() => moveReviewItem(index, -1)}
+                      >
+                        <ArrowUp size={15} />
+                      </IconButton>
+                      <IconButton
+                        label={`Mover avaliacao ${index + 1} para baixo`}
+                        type="button"
+                        disabled={
+                          index === form.reviewsItems.length - 1 || saving
+                        }
+                        onClick={() => moveReviewItem(index, 1)}
+                      >
+                        <ArrowDown size={15} />
+                      </IconButton>
+                      <IconButton
+                        label={`Remover avaliacao ${index + 1}`}
+                        type="button"
+                        disabled={saving}
+                        onClick={() =>
+                          setForm((current) => ({
+                            ...current,
+                            reviewsItems: current.reviewsItems.filter(
+                              (review) => review.id !== item.id,
+                            ),
+                          }))
+                        }
+                      >
+                        <Trash2 size={15} />
+                      </IconButton>
+                    </div>
+                  </div>
+                  <div className="editor-form__grid">
+                    <TextField
+                      label={`Nome na avaliacao ${index + 1}`}
+                      maxLength={80}
+                      placeholder="Nome ou identificacao publica"
+                      value={item.author}
+                      onChange={(event) =>
+                        updateReviewItem(item.id, {
+                          author: event.target.value,
+                        })
+                      }
+                    />
+                    <TextField
+                      label={`Contexto da avaliacao ${index + 1}`}
+                      maxLength={100}
+                      placeholder="Opcional: cidade, produto ou perfil"
+                      value={item.context}
+                      onChange={(event) =>
+                        updateReviewItem(item.id, {
+                          context: event.target.value,
+                        })
+                      }
+                    />
+                    <SelectField
+                      label={`Nota da avaliacao ${index + 1}`}
+                      value={String(item.rating)}
+                      onChange={(event) =>
+                        updateReviewItem(item.id, {
+                          rating: Number(event.target.value),
+                        })
+                      }
+                    >
+                      {[5, 4, 3, 2, 1].map((rating) => (
+                        <option key={rating} value={rating}>
+                          {rating} {rating === 1 ? "estrela" : "estrelas"}
+                        </option>
+                      ))}
+                    </SelectField>
+                    <label className="visibility-control">
+                      <input
+                        checked={item.enabled}
+                        type="checkbox"
+                        onChange={(event) =>
+                          updateReviewItem(item.id, {
+                            enabled: event.target.checked,
+                          })
+                        }
+                      />
+                      <span>Exibir esta avaliacao</span>
+                    </label>
+                  </div>
+                  <TextAreaField
+                    label={`Relato da avaliacao ${index + 1}`}
+                    maxLength={360}
+                    rows={4}
+                    value={item.content}
+                    onChange={(event) =>
+                      updateReviewItem(item.id, {
+                        content: event.target.value,
+                      })
+                    }
+                  />
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="footer-links-editor__empty">
+              <Star aria-hidden="true" size={18} />
+              <p>Nenhuma avaliacao cadastrada. A Home permanece sem a secao.</p>
+            </div>
+          )}
         </section>
         <section
           aria-labelledby="appearance-tab-composition"
@@ -3762,6 +5573,24 @@ function StorefrontEditor({
           </div>
           <label className="visibility-control visibility-control--panel">
             <input
+              checked={form.manifestoDividerMobileEnabled}
+              disabled={form.manifestoDivider === "none"}
+              type="checkbox"
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  manifestoDividerMobileEnabled: event.target.checked,
+                }))
+              }
+            />
+            <span>Exibir divisor do manifesto em celulares</span>
+          </label>
+          <p className="editor-section__hint">
+            Desative para separar o manifesto da proxima secao sem repetir
+            linhas quando os atalhos tambem estiverem ocultos.
+          </p>
+          <label className="visibility-control visibility-control--panel">
+            <input
               checked={form.editorialNavigationMobileEnabled}
               type="checkbox"
               onChange={(event) =>
@@ -3957,6 +5786,18 @@ function StorefrontEditor({
           <div className="editor-section__title">
             <Link2 size={18} />
             <h3>Rodape</h3>
+          </div>
+          <p className="editor-section__hint">
+            Esta paleta pertence somente ao rodape e nao altera a Home, o
+            Cabecalho ou o Catalogo.
+          </p>
+          <div className="editor-form__grid color-controls">
+            <HexColorField
+              label="Cor do rodape"
+              required
+              value={form.footerColor}
+              onChange={(footerColor) => setForm({ ...form, footerColor })}
+            />
           </div>
           <div className="footer-copy-groups">
             <fieldset className="footer-copy-group">
@@ -4253,6 +6094,7 @@ function StorefrontEditor({
             "--preview-hero-eyebrow-space": `${form.homeTextStyles.heroEyebrow.spacingAfter}px`,
             "--preview-hero-eyebrow-font": textFontCssValue(
               form.homeTextStyles.heroEyebrow.fontFamily,
+              "var(--font-body)",
             ),
             "--preview-hero-title-color":
               form.homeTextStyles.heroTitle.color || form.primaryColor,
@@ -4260,6 +6102,7 @@ function StorefrontEditor({
             "--preview-hero-title-space": `${form.homeTextStyles.heroTitle.spacingAfter}px`,
             "--preview-hero-title-font": textFontCssValue(
               form.homeTextStyles.heroTitle.fontFamily,
+              "var(--font-display)",
             ),
             "--preview-manifesto-color":
               form.homeTextStyles.manifesto.color || form.primaryColor,
@@ -4267,12 +6110,14 @@ function StorefrontEditor({
             "--preview-manifesto-space": `${form.homeTextStyles.manifesto.spacingAfter / 3}px`,
             "--preview-manifesto-font": textFontCssValue(
               form.homeTextStyles.manifesto.fontFamily,
+              "var(--font-display)",
             ),
             "--preview-navigation-color":
               form.homeTextStyles.navigation.color || form.primaryColor,
             "--preview-navigation-font-size": `${form.homeTextStyles.navigation.fontSize}px`,
             "--preview-navigation-font": textFontCssValue(
               form.homeTextStyles.navigation.fontFamily,
+              "var(--font-body)",
             ),
             "--preview-featured-eyebrow-color":
               form.homeTextStyles.featuredEyebrow.color || form.accentColor,
@@ -4280,18 +6125,44 @@ function StorefrontEditor({
             "--preview-featured-eyebrow-space": `${form.homeTextStyles.featuredEyebrow.spacingAfter / 2}px`,
             "--preview-featured-eyebrow-font": textFontCssValue(
               form.homeTextStyles.featuredEyebrow.fontFamily,
+              "var(--font-body)",
             ),
             "--preview-featured-title-color":
               form.homeTextStyles.featuredTitle.color || form.primaryColor,
             "--preview-featured-title-font-size": `${form.homeTextStyles.featuredTitle.fontSize}px`,
             "--preview-featured-title-font": textFontCssValue(
               form.homeTextStyles.featuredTitle.fontFamily,
+              "var(--font-display)",
             ),
             "--preview-card-title-color":
               form.homeTextStyles.productCardTitle.color || form.primaryColor,
             "--preview-card-title-font-size": `${form.homeTextStyles.productCardTitle.fontSize}px`,
             "--preview-card-title-font": textFontCssValue(
               form.homeTextStyles.productCardTitle.fontFamily,
+              "var(--font-display)",
+            ),
+            "--preview-reviews-background": form.reviewsBackgroundColor,
+            "--preview-reviews-card": form.reviewsCardColor,
+            "--preview-reviews-eyebrow-color":
+              form.homeTextStyles.reviewsEyebrow.color || form.accentColor,
+            "--preview-reviews-eyebrow-font-size": `${form.homeTextStyles.reviewsEyebrow.fontSize}px`,
+            "--preview-reviews-eyebrow-font": textFontCssValue(
+              form.homeTextStyles.reviewsEyebrow.fontFamily,
+              "var(--font-body)",
+            ),
+            "--preview-reviews-title-color":
+              form.homeTextStyles.reviewsTitle.color || form.primaryColor,
+            "--preview-reviews-title-font-size": `${form.homeTextStyles.reviewsTitle.fontSize}px`,
+            "--preview-reviews-title-font": textFontCssValue(
+              form.homeTextStyles.reviewsTitle.fontFamily,
+              "var(--font-display)",
+            ),
+            "--preview-reviews-body-color":
+              form.homeTextStyles.reviewsBody.color || form.primaryColor,
+            "--preview-reviews-body-font-size": `${form.homeTextStyles.reviewsBody.fontSize}px`,
+            "--preview-reviews-body-font": textFontCssValue(
+              form.homeTextStyles.reviewsBody.fontFamily,
+              "var(--font-body)",
             ),
             "--preview-footer-slogan-color":
               form.homeTextStyles.footerSlogan.color ||
@@ -4300,13 +6171,17 @@ function StorefrontEditor({
             "--preview-footer-slogan-space": `${form.homeTextStyles.footerSlogan.spacingAfter / 2}px`,
             "--preview-footer-slogan-font": textFontCssValue(
               form.homeTextStyles.footerSlogan.fontFamily,
+              "var(--font-body)",
             ),
           } as CSSProperties
         }
       >
-        {activeTab === "composition" ? (
+        {(["composition", "header", "catalog"] as AppearanceTab[]).includes(
+          activeTab,
+        ) ? (
           <StorefrontLivePreview
             device={previewDevice}
+            focusLocation={activeTab === "catalog" ? "catalog" : "top"}
             form={form}
             publicWebUrl={publicWebUrl}
             replayKey={previewKey}
@@ -4365,7 +6240,7 @@ function StorefrontEditor({
                     : ""
                 }`}
               >
-                <img src={form.heroImageUrl} alt="" />
+                <img src={adminMediaUrl(form.heroImageUrl)} alt="" />
                 {form.heroEyebrow.trim() || form.heroTitle.trim() ? (
                   <div>
                     {form.heroEyebrow.trim() ? <p>{form.heroEyebrow}</p> : null}
@@ -4381,6 +6256,9 @@ function StorefrontEditor({
                       return (
                         <div
                           className={`appearance-preview__manifesto appearance-preview__manifesto--${form.manifestoDivider}`}
+                          data-mobile-divider-enabled={
+                            form.manifestoDividerMobileEnabled
+                          }
                           key={section.id}
                         >
                           {form.manifestoItems
@@ -4396,6 +6274,13 @@ function StorefrontEditor({
                                     : "static"
                                 }
                                 key={item.id}
+                                style={{
+                                  fontFamily: textFontCssValue(item.fontFamily),
+                                  fontSize: item.fontSize
+                                    ? `${Math.max(12, item.fontSize / 3)}px`
+                                    : undefined,
+                                  marginBottom: `${item.spacingAfter / 3}px`,
+                                }}
                               >
                                 {item.content}
                               </span>
@@ -4469,13 +6354,15 @@ function StorefrontEditor({
                           <div
                             className={`appearance-preview__card-media appearance-preview__card-media--${form.imageFit}`}
                           >
-                            <img src={form.heroImageUrl} alt="" />
+                            <img src={adminMediaUrl(form.heroImageUrl)} alt="" />
                           </div>
                           <div>
                             <Badge>Categoria</Badge>
                             <h4>Produto de exemplo</h4>
                             <p className="appearance-preview__card-description">
-                              Descricao do produto apresentada no card.
+                              {formatProductCardDescription(
+                                "Descricao apresentada no card.\n° Beneficio principal\n° Informacao complementar",
+                              )}
                             </p>
                             <strong>R$ 289,00</strong>
                             <span className="appearance-preview__card-button">
@@ -4488,6 +6375,48 @@ function StorefrontEditor({
                     );
                   })}
               </div>
+              {form.reviewsEnabled &&
+              form.reviewsItems.some(
+                (item) =>
+                  item.enabled && item.author.trim() && item.content.trim(),
+              ) ? (
+                <div
+                  className="appearance-preview__reviews"
+                  data-motion-effect={
+                    form.homeMotionEnabled
+                      ? form.homeMotionByBlock.reviews
+                      : "static"
+                  }
+                >
+                  <div className="appearance-preview__reviews-heading">
+                    {form.reviewsEyebrow.trim() ? (
+                      <p>{form.reviewsEyebrow}</p>
+                    ) : null}
+                    {form.reviewsTitle.trim() ? (
+                      <h3>{form.reviewsTitle}</h3>
+                    ) : null}
+                  </div>
+                  <div className="appearance-preview__reviews-track">
+                    {form.reviewsItems
+                      .filter(
+                        (item) =>
+                          item.enabled &&
+                          item.author.trim() &&
+                          item.content.trim(),
+                      )
+                      .slice(0, 3)
+                      .map((item) => (
+                        <article key={item.id}>
+                          <span aria-hidden="true">
+                            {"\u2605".repeat(item.rating)}
+                          </span>
+                          <p>{item.content}</p>
+                          <strong>{item.author}</strong>
+                        </article>
+                      ))}
+                  </div>
+                </div>
+              ) : null}
               <div className="appearance-preview__footer">
                 <div className="appearance-preview__footer-main">
                   <div className="appearance-preview__footer-brand-column">
@@ -4532,7 +6461,7 @@ function StorefrontEditor({
                           {customFooterLinks.map((link) => (
                             <span key={link.id}>
                               {link.iconUrl ? (
-                                <img src={link.iconUrl} alt="" />
+                                <img src={adminMediaUrl(link.iconUrl)} alt="" />
                               ) : null}
                               {link.label || null}
                             </span>
@@ -4544,7 +6473,7 @@ function StorefrontEditor({
                           {systemFooterLinks.map((link) => (
                             <span key={link.id}>
                               {link.iconUrl ? (
-                                <img src={link.iconUrl} alt="" />
+                                <img src={adminMediaUrl(link.iconUrl)} alt="" />
                               ) : null}
                               {link.label}
                             </span>
@@ -4602,6 +6531,199 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+function orderMonthKey(value: string) {
+  const date = new Date(value);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function orderDayKey(value: string) {
+  const date = new Date(value);
+  return `${orderMonthKey(value)}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function formatMonthKey(value: string) {
+  const [year, month] = value.split("-").map(Number);
+  return new Intl.DateTimeFormat("pt-BR", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(year!, month! - 1, 1));
+}
+
+function formatDayKey(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+  }).format(new Date(`${value}T12:00:00`));
+}
+
+function groupOrdersByMonthAndDay(orders: OrderSummary[]) {
+  const months = new Map<string, Map<string, OrderSummary[]>>();
+  for (const order of orders) {
+    const monthKey = orderMonthKey(order.createdAt);
+    const dayKey = orderDayKey(order.createdAt);
+    const days = months.get(monthKey) ?? new Map<string, OrderSummary[]>();
+    days.set(dayKey, [...(days.get(dayKey) ?? []), order]);
+    months.set(monthKey, days);
+  }
+  return [...months.entries()].sort(([left], [right]) =>
+    right.localeCompare(left),
+  );
+}
+
+function RevenueByChannelChart({ overview }: { overview?: AdminOverview }) {
+  const online = overview?.revenueByChannel?.online ?? 0;
+  const whatsapp = overview?.revenueByChannel?.whatsapp ?? 0;
+  const maximum = Math.max(online, whatsapp, 1);
+
+  if (online === 0 && whatsapp === 0) {
+    return (
+      <EmptyState
+        title="Nenhuma receita confirmada"
+        body="Pagamentos aprovados e vendas confirmadas pelo WhatsApp aparecerao aqui."
+      />
+    );
+  }
+
+  return (
+    <div className="bar-chart" aria-label="Receita confirmada por canal">
+      {[
+        ["Online", online],
+        ["WhatsApp", whatsapp],
+      ].map(([label, value]) => (
+        <span
+          key={label}
+          style={{ height: `${Math.max(16, (Number(value) / maximum) * 100)}%` }}
+          title={`${label}: ${formatMoney(Number(value))}`}
+        >
+          <b>{label}</b>
+          <small>{formatMoney(Number(value))}</small>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function OrderHistory({
+  loading,
+  orders,
+  revenuePendingReference,
+  onManage,
+  onToggleWhatsappRevenue,
+}: {
+  loading: boolean;
+  orders: OrderSummary[];
+  revenuePendingReference?: string;
+  onManage?: (order: OrderSummary) => void;
+  onToggleWhatsappRevenue?: (order: OrderSummary) => void;
+}) {
+  if (loading) return <Skeleton className="table-skeleton" />;
+  if (!orders.length) {
+    return (
+      <EmptyState
+        title="Sem pedidos neste historico"
+        body="Novos pedidos aparecerao organizados pela data em que foram criados."
+      />
+    );
+  }
+
+  return (
+    <div className="order-history">
+      {groupOrdersByMonthAndDay(orders).map(([month, days], monthIndex) => {
+        const monthOrders = [...days.values()].flat();
+        return (
+          <details className="order-history__month" key={month} open={monthIndex === 0}>
+            <summary>
+              <span>
+                <strong>{formatMonthKey(month)}</strong>
+                <small>{monthOrders.length} {monthOrders.length === 1 ? "pedido" : "pedidos"}</small>
+              </span>
+              <b>{formatMoney(monthOrders.reduce((sum, order) => sum + order.totalInCents, 0))}</b>
+            </summary>
+            <div className="order-history__days">
+              {[...days.entries()]
+                .sort(([left], [right]) => right.localeCompare(left))
+                .map(([day, dayOrders], dayIndex) => (
+                  <details className="order-history__day" key={day} open={dayIndex === 0}>
+                    <summary>
+                      <span>{formatDayKey(day)}</span>
+                      <small>{dayOrders.length} {dayOrders.length === 1 ? "pedido" : "pedidos"}</small>
+                    </summary>
+                    <DataTable
+                      columns={["Referencia", "Cliente", "Status", "Canal", "Produtos", "Total", "Receita", "Acoes"]}
+                      rows={dayOrders.map((order) => [
+                        order.publicReference,
+                        order.customerEmail ? maskEmail(order.customerEmail) : (order.customerName ?? "Compra assistida"),
+                        order.status,
+                        paymentMethodLabel(order),
+                        order.items.reduce((sum, item) => sum + item.quantity, 0),
+                        formatMoney(order.totalInCents),
+                        order.revenueConfirmedAt ? `Confirmada em ${formatDate(order.revenueConfirmedAt)}` : "Nao confirmada",
+                        <div className="order-history__actions" key={order.publicReference}>
+                          {order.salesChannel === "online" && onManage ? (
+                            <IconButton label={`Gerenciar entrega de ${order.publicReference}`} onClick={() => onManage(order)}>
+                              <Edit3 size={16} />
+                            </IconButton>
+                          ) : null}
+                          {order.salesChannel === "whatsapp" && onToggleWhatsappRevenue ? (
+                            <Button
+                              loading={revenuePendingReference === order.publicReference}
+                              type="button"
+                              variant="secondary"
+                              onClick={() => onToggleWhatsappRevenue(order)}
+                            >
+                              {order.revenueConfirmedAt ? <RotateCcw size={16} /> : <CheckCircle2 size={16} />}
+                              {order.revenueConfirmedAt ? "Desfazer receita" : "Confirmar venda"}
+                            </Button>
+                          ) : null}
+                        </div>,
+                      ])}
+                    />
+                  </details>
+                ))}
+            </div>
+          </details>
+        );
+      })}
+    </div>
+  );
+}
+
+function HistoryArchiveConfirmation({
+  archived,
+  count,
+  pending,
+  onCancel,
+  onConfirm,
+}: {
+  archived: boolean;
+  count: number;
+  pending: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <section className="panel delete-confirmation" aria-labelledby="history-confirmation-title">
+      <div>
+        <p className="panel-eyebrow">Confirmacao</p>
+        <h2 id="history-confirmation-title">
+          {archived ? "Restaurar historico?" : "Arquivar historico atual?"}
+        </h2>
+        <p>
+          {count} {count === 1 ? "pedido sera atualizado" : "pedidos serao atualizados"}. Nenhum registro financeiro sera apagado.
+        </p>
+      </div>
+      <div className="delete-confirmation__actions">
+        <Button disabled={pending} type="button" variant="secondary" onClick={onCancel}>Cancelar</Button>
+        <Button loading={pending} type="button" variant={archived ? "primary" : "danger"} onClick={onConfirm}>
+          {archived ? <RotateCcw size={16} /> : <Archive size={16} />}
+          Confirmar
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 function Customers() {
   return (
     <Placeholder
@@ -4612,11 +6734,261 @@ function Customers() {
 }
 
 function Payments() {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState<PixSettings | null>(null);
+  const [notice, setNotice] = useState("");
+  const [pendingDecision, setPendingDecision] = useState<{
+    order: OrderSummary;
+    status: "approved" | "rejected";
+  } | null>(null);
+  const settings = useQuery({
+    queryKey: ["admin-pix-settings"],
+    queryFn: getPixSettings,
+  });
+  const orders = useQuery({
+    queryKey: ["admin-orders", false],
+    queryFn: () => getOrders(false),
+  });
+
+  useEffect(() => {
+    if (settings.data) setForm(settings.data);
+  }, [settings.data]);
+
+  const save = useMutation({
+    mutationFn: updatePixSettings,
+    onSuccess(data) {
+      setForm(data);
+      setNotice(data.enabled ? "Pix ativado e salvo." : "Pix desativado e salvo.");
+      void queryClient.invalidateQueries({ queryKey: ["admin-pix-settings"] });
+    },
+  });
+  const review = useMutation({
+    mutationFn: ({
+      reference,
+      status,
+    }: {
+      reference: string;
+      status: "approved" | "rejected";
+    }) => setPixPaymentStatus(reference, status),
+    onSuccess(order) {
+      setNotice(
+        order.paymentStatus === "approved"
+          ? `Pagamento ${order.publicReference} confirmado.`
+          : `Pagamento ${order.publicReference} rejeitado.`,
+      );
+      setPendingDecision(null);
+      void queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      void queryClient.invalidateQueries({ queryKey: ["admin-overview"] });
+    },
+  });
+  const pixOrders = (orders.data?.items ?? []).filter(
+    (order) => order.paymentMethod === "pix_manual",
+  );
+  const pendingPixOrders = pixOrders.filter(
+    (order) => order.paymentStatus === "pending",
+  ).length;
+
   return (
-    <Placeholder
-      title="Pagamentos"
-      body="Status financeiro somente por dados oficiais do provedor e webhooks verificados."
-    />
+    <section className="admin-page">
+      <PageTitle
+        eyebrow="Financeiro"
+        title="Pagamentos"
+        body="Configure o Pix da loja e confirme manualmente somente depois de conferir o comprovante e o recebimento na conta."
+        action={
+          <Button
+            loading={orders.isFetching}
+            type="button"
+            variant="secondary"
+            onClick={() => orders.refetch()}
+          >
+            <RefreshCw size={16} /> Atualizar pedidos
+          </Button>
+        }
+      />
+      {notice ? (
+        <p className="notice-text" role="status">
+          <CheckCircle2 size={16} /> {notice}
+        </p>
+      ) : null}
+      {settings.isLoading ? <Skeleton className="table-skeleton" /> : null}
+      {settings.isError ? (
+        <EmptyState
+          title="Falha ao carregar o Pix"
+          body="Confirme a conexao com a API e tente novamente."
+          action={<Button onClick={() => settings.refetch()}>Tentar novamente</Button>}
+        />
+      ) : null}
+      {form ? (
+        <form
+          className="panel pix-settings"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setNotice("");
+            save.mutate(form);
+          }}
+        >
+          <div className="pix-settings__heading">
+            <div>
+              <p className="panel-eyebrow">Pix copia e cola</p>
+              <h2>Dados do recebedor</h2>
+              <p>
+                O QR Code e gerado pela propria loja. A confirmacao do pagamento
+                continua manual nesta primeira versao.
+              </p>
+            </div>
+            <button
+              aria-pressed={form.enabled}
+              className="pix-settings__toggle"
+              data-enabled={form.enabled}
+              type="button"
+              onClick={() => setForm({ ...form, enabled: !form.enabled })}
+            >
+              <Power aria-hidden="true" size={18} />
+              <span>{form.enabled ? "Pix ativado" : "Pix desativado"}</span>
+            </button>
+          </div>
+          <div className="pix-settings__grid">
+            <TextField
+              label="Chave Pix"
+              maxLength={77}
+              required={form.enabled}
+              value={form.key}
+              onChange={(event) => setForm({ ...form, key: event.target.value })}
+            />
+            <TextField
+              label="Nome do recebedor"
+              maxLength={100}
+              required={form.enabled}
+              value={form.receiverName}
+              onChange={(event) =>
+                setForm({ ...form, receiverName: event.target.value })
+              }
+            />
+            <TextField
+              label="Cidade do recebedor"
+              maxLength={100}
+              required={form.enabled}
+              value={form.receiverCity}
+              onChange={(event) =>
+                setForm({ ...form, receiverCity: event.target.value })
+              }
+            />
+          </div>
+          <p className="pix-settings__note">
+            Aceita chave por CPF/CNPJ, telefone, e-mail ou chave aleatoria. Os
+            dados sao normalizados para o padrao BR Code ao gerar o pedido.
+          </p>
+          {save.isError ? (
+            <p className="error-text" role="alert">{save.error.message}</p>
+          ) : null}
+          <div className="pix-settings__actions">
+            <Button loading={save.isPending} type="submit">
+              <Save size={16} /> Salvar configuracao Pix
+            </Button>
+          </div>
+        </form>
+      ) : null}
+
+      <section className="panel pix-orders" aria-labelledby="pix-orders-title">
+        <div className="pix-orders__heading">
+          <div>
+            <p className="panel-eyebrow">Revisao manual</p>
+            <h2 id="pix-orders-title">Pedidos pagos via Pix</h2>
+            <p>
+              {pendingPixOrders
+                ? `${pendingPixOrders} aguardando conferencia.`
+                : "Nenhum pagamento Pix aguardando conferencia."}
+            </p>
+          </div>
+          <QrCode aria-hidden="true" size={24} />
+        </div>
+        {orders.isError ? (
+          <p className="error-text" role="alert">Nao foi possivel carregar os pedidos.</p>
+        ) : null}
+        {orders.isLoading ? <Skeleton className="table-skeleton" /> : null}
+        {pendingDecision ? (
+          <div className="pix-review-confirmation" role="alert">
+            <div>
+              <strong>
+                {pendingDecision.status === "approved"
+                  ? "Confirmar recebimento?"
+                  : "Rejeitar este pagamento?"}
+              </strong>
+              <span>
+                {pendingDecision.order.publicReference} - {formatMoney(pendingDecision.order.totalInCents)}
+              </span>
+            </div>
+            <div>
+              <Button
+                disabled={review.isPending}
+                type="button"
+                variant="secondary"
+                onClick={() => setPendingDecision(null)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                loading={review.isPending}
+                type="button"
+                variant={pendingDecision.status === "approved" ? "primary" : "danger"}
+                onClick={() =>
+                  review.mutate({
+                    reference: pendingDecision.order.publicReference,
+                    status: pendingDecision.status,
+                  })
+                }
+              >
+                {pendingDecision.status === "approved" ? "Confirmar Pix" : "Rejeitar Pix"}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {review.isError ? (
+          <p className="error-text" role="alert">{review.error.message}</p>
+        ) : null}
+        {!orders.isLoading && !pixOrders.length ? (
+          <EmptyState
+            title="Nenhum pedido Pix"
+            body="Os pedidos aparecerao aqui assim que o cliente gerar um pagamento Pix."
+          />
+        ) : null}
+        {pixOrders.length ? (
+          <DataTable
+            columns={["Pedido", "Cliente", "Criado em", "Valor", "Status", "Acoes"]}
+            rows={pixOrders.map((order) => [
+              order.publicReference,
+              order.customerEmail ? maskEmail(order.customerEmail) : (order.customerName ?? "Cliente"),
+              formatDate(order.createdAt),
+              formatMoney(order.totalInCents),
+              order.paymentStatus === "approved"
+                ? "Confirmado"
+                : order.paymentStatus === "rejected"
+                  ? "Rejeitado"
+                  : "Aguardando confirmacao",
+              order.paymentStatus === "pending" ? (
+                <div className="pix-orders__actions" key={order.publicReference}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setPendingDecision({ order, status: "rejected" })}
+                  >
+                    Rejeitar
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => setPendingDecision({ order, status: "approved" })}
+                  >
+                    <CheckCircle2 size={16} /> Confirmar
+                  </Button>
+                </div>
+              ) : (
+                "Revisado"
+              ),
+            ])}
+          />
+        ) : null}
+      </section>
+    </section>
   );
 }
 
@@ -4886,13 +7258,21 @@ function Reports() {
     queryKey: ["admin-overview"],
     queryFn: getOverview,
   });
-  const orders = useQuery({ queryKey: ["admin-orders"], queryFn: getOrders });
+  const orders = useQuery({
+    queryKey: ["admin-orders", false],
+    queryFn: () => getOrders(false),
+  });
   const products = useQuery({
     queryKey: ["admin-products"],
     queryFn: getProducts,
   });
   const orderItems = orders.data?.items ?? [];
   const productItems = products.data?.items ?? [];
+  const activeProductItems = productItems.filter(
+    (product) => product.status === "active",
+  );
+  const inactiveProductCount = productItems.length - activeProductItems.length;
+  const monthlyRevenue = overview.data?.monthlyRevenue ?? [];
   const hasErrors = overview.isError || orders.isError || products.isError;
 
   return (
@@ -4904,6 +7284,25 @@ function Reports() {
         action={
           <div className="page-title__actions">
             <Button
+              loading={overview.isFetching || orders.isFetching || products.isFetching}
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                void overview.refetch();
+                void orders.refetch();
+                void products.refetch();
+              }}
+            >
+              <RefreshCw size={16} />
+              Atualizar
+            </Button>
+            <Link className="ds-button ds-button--secondary admin-link-button" to="/pedidos">
+              <span>
+                <Archive size={16} />
+                Organizar historico
+              </span>
+            </Link>
+            <Button
               disabled={orders.isLoading || orderItems.length === 0}
               type="button"
               variant="secondary"
@@ -4913,13 +7312,15 @@ function Reports() {
               Vendas CSV
             </Button>
             <Button
-              disabled={products.isLoading || productItems.length === 0}
+              disabled={products.isLoading || activeProductItems.length === 0}
               type="button"
               variant="secondary"
-              onClick={() => exportProductsCsv(productItems, "relatorio")}
+              onClick={() =>
+                exportProductsCsv(activeProductItems, "relatorio")
+              }
             >
               <Download size={16} />
-              Produtos CSV
+              Produtos ativos CSV
             </Button>
           </div>
         }
@@ -4952,7 +7353,12 @@ function Reports() {
           <Metric
             label="Produtos ativos"
             value={String(overview.data.metrics.activeProducts)}
-            hint={formatMoney(overview.data.metrics.inventoryValueInCents)}
+              hint={`${overview.data.metrics.activeStockUnits ?? 0} unidades disponíveis`}
+          />
+          <Metric
+            label="Valor do estoque ativo"
+            value={formatMoney(overview.data.metrics.inventoryValueInCents)}
+            hint="Preço atual × quantidade disponível"
           />
         </div>
       ) : overview.isLoading ? (
@@ -4962,14 +7368,47 @@ function Reports() {
           ))}
         </div>
       ) : null}
+      {overview.data ? (
+        <section className="panel monthly-revenue">
+          <div className="monthly-revenue__header">
+            <div>
+              <p className="panel-eyebrow">Faturamento por competencia</p>
+              <h2>Receita confirmada por mes</h2>
+              <p>
+                Compras online entram apos a confirmacao do Mercado Pago ou a
+                revisao manual do Pix. WhatsApp entra apos a confirmacao manual
+                da venda.
+              </p>
+            </div>
+            <Button
+              disabled={monthlyRevenue.length === 0}
+              type="button"
+              variant="secondary"
+              onClick={() => exportMonthlyRevenueCsv(overview.data!)}
+            >
+              <Download size={16} />
+              Receita mensal CSV
+            </Button>
+          </div>
+          <DataTable
+            columns={["Mes", "Online", "WhatsApp", "Total confirmado"]}
+            rows={monthlyRevenue.map((row) => [
+              formatMonthKey(row.month),
+              formatMoney(row.onlineInCents),
+              formatMoney(row.whatsappInCents),
+              <strong key={row.month}>{formatMoney(row.totalInCents)}</strong>,
+            ])}
+          />
+        </section>
+      ) : null}
       <section className="panel report-export-panel">
         <div className="report-export-panel__header">
           <div>
             <p className="panel-eyebrow">Exportacoes</p>
             <h2>Arquivos para conferencia</h2>
             <p>
-              Os CSVs respeitam os dados carregados agora no painel e podem ser
-              abertos em planilhas.
+              Os CSVs operacionais usam os dados atuais. Produtos inativos
+              permanecem somente no historico e nao entram no estoque ativo.
             </p>
           </div>
           <Button
@@ -4988,24 +7427,28 @@ function Reports() {
             <span>{orderItems.length === 1 ? "pedido" : "pedidos"}</span>
           </div>
           <div>
-            <strong>{productItems.length}</strong>
-            <span>{productItems.length === 1 ? "produto" : "produtos"}</span>
+            <strong>{activeProductItems.length}</strong>
+            <span>
+              {activeProductItems.length === 1
+                ? "produto ativo"
+                : "produtos ativos"}
+            </span>
+            {inactiveProductCount > 0 ? (
+              <small>
+                {inactiveProductCount} preservado
+                {inactiveProductCount === 1 ? "" : "s"} somente no historico
+              </small>
+            ) : null}
           </div>
         </div>
       </section>
-      <DataTable
-        columns={["Referencia", "Cliente", "Canal", "Total", "Atualizado"]}
-        loading={orders.isLoading}
-        rows={orderItems.slice(0, 8).map((order) => [
-          order.publicReference,
-          order.customerEmail
-            ? maskEmail(order.customerEmail)
-            : order.customerName ?? "Compra assistida",
-          order.salesChannel,
-          formatMoney(order.totalInCents),
-          formatDate(order.updatedAt),
-        ])}
-      />
+      <section className="report-order-history">
+        <div>
+          <p className="panel-eyebrow">Historico operacional</p>
+          <h2>Pedidos por mes e dia</h2>
+        </div>
+        <OrderHistory loading={orders.isLoading} orders={orderItems} />
+      </section>
     </section>
   );
 }
@@ -5062,13 +7505,18 @@ function Metric({
   hint: string;
   tone?: "neutral" | "warning";
 }) {
+  const valueDensity =
+    value.length > 16 ? "dense" : value.length > 11 ? "compact" : "default";
+
   return (
     <article className="metric-card">
       <div>
         <span>{label}</span>
         {tone === "warning" ? <Badge tone="warning">Atencao</Badge> : null}
       </div>
-      <strong>{value}</strong>
+      <strong className={`metric-card__value metric-card__value--${valueDensity}`}>
+        {value}
+      </strong>
       <p>{hint}</p>
     </article>
   );

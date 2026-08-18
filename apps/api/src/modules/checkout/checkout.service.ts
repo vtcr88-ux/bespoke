@@ -10,6 +10,9 @@ import { ApiError } from "../../shared/api-error.js";
 import type { CommerceStoreAdapter } from "../store/commerce.store.js";
 import { CartService } from "../cart/cart.service.js";
 import { WhatsappService } from "../whatsapp/whatsapp.service.js";
+import { publicMediaUrl } from "../media/public-media-url.js";
+
+export type MercadoPagoPreferenceCreate = Preference["create"];
 
 export class CheckoutService {
   constructor(
@@ -17,12 +20,16 @@ export class CheckoutService {
     private readonly store: CommerceStoreAdapter,
     private readonly env: AppEnv,
     private readonly whatsapp: WhatsappService,
+    private readonly mercadoPagoPreferenceCreate?: MercadoPagoPreferenceCreate,
   ) {}
 
   async createPreference(input: CheckoutRequest): Promise<CheckoutResponse> {
     const priced = await this.cart.assertAvailable(input.items);
     const orderReference = `ORD-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
     const checkoutAccessToken = crypto.randomBytes(32).toString("base64url");
+    const providerReturnUrl = this.isPlaceholderToken()
+      ? null
+      : this.mercadoPagoReturnUrl(orderReference);
     await this.store.createOnlineOrder({
       orderReference,
       checkoutAccessTokenHash: hashAccessToken(checkoutAccessToken),
@@ -50,36 +57,47 @@ export class CheckoutService {
       options: { timeout: 8000 }
     });
     const preference = new Preference(client);
+    const createPreference =
+      this.mercadoPagoPreferenceCreate ?? preference.create.bind(preference);
 
-    const returnUrl = this.returnUrl(orderReference);
     const storefront = await this.store.storefront();
-    const response = await preference.create({
-      body: {
-        external_reference: orderReference,
-        statement_descriptor: statementDescriptor(storefront.brandName),
-        auto_return: "approved",
-        notification_url: `${this.env.PUBLIC_API_URL}/webhooks/mercado-pago`,
-        back_urls: {
-          success: returnUrl,
-          pending: returnUrl,
-          failure: returnUrl,
+    let response;
+    try {
+      response = await createPreference({
+        body: {
+          external_reference: orderReference,
+          statement_descriptor: statementDescriptor(storefront.brandName),
+          auto_return: "approved",
+          notification_url: `${this.env.PUBLIC_API_URL}/webhooks/mercado-pago`,
+          back_urls: {
+            success: providerReturnUrl!,
+            pending: providerReturnUrl!,
+            failure: providerReturnUrl!,
+          },
+          payer: {
+            name: input.customer.name,
+            email: input.customer.email,
+            phone: parsePhone(input.customer.phone),
+          },
+          items: priced.lines.map((line) => ({
+            id: line.sku,
+            title: line.name,
+            quantity: line.quantity,
+            currency_id: "BRL",
+            unit_price: centsToMercadoPagoAmount(line.unitPriceInCents),
+            picture_url: line.imageUrl,
+          })),
         },
-        payer: {
-          name: input.customer.name,
-          email: input.customer.email,
-          phone: parsePhone(input.customer.phone)
-        },
-        items: priced.lines.map((line) => ({
-          id: line.sku,
-          title: line.name,
-          quantity: line.quantity,
-          currency_id: "BRL",
-          unit_price: centsToMercadoPagoAmount(line.unitPriceInCents),
-          picture_url: line.imageUrl
-        }))
-      },
-      requestOptions: { idempotencyKey }
-    });
+        requestOptions: { idempotencyKey },
+      });
+    } catch (error) {
+      throw new ApiError(
+        502,
+        "MERCADO_PAGO_PREFERENCE_FAILED",
+        "Nao foi possivel iniciar o pagamento no Mercado Pago. Tente novamente em instantes.",
+        { cause: error },
+      );
+    }
 
     const checkoutUrl = response.init_point ?? response.sandbox_init_point;
     if (!checkoutUrl) {
@@ -122,7 +140,7 @@ export class CheckoutService {
         quantity: item.quantity,
         unitPriceInCents: item.unitPriceInCents,
         subtotalInCents: item.subtotalInCents,
-        imageUrl: item.imageUrl,
+        imageUrl: publicMediaUrl(item.imageUrl, this.env.PUBLIC_API_URL),
       })),
       whatsappUrl: approved ? await this.whatsapp.postPaymentUrl(order) : null,
       canContinueOnWhatsapp: approved,
@@ -155,14 +173,47 @@ export class CheckoutService {
   private localCheckoutUrl(
     orderReference: string,
   ) {
-    return this.returnUrl(orderReference);
+    return checkoutPageUrl(this.env.PUBLIC_WEB_URL, orderReference);
   }
 
-  private returnUrl(orderReference: string) {
-    const url = new URL("/checkout/sandbox", this.env.PUBLIC_WEB_URL);
-    url.searchParams.set("order", orderReference);
-    return url.toString();
+  private mercadoPagoReturnUrl(orderReference: string) {
+    const publicWebUrl = new URL(this.env.PUBLIC_WEB_URL);
+    if (isPublicHttpsUrl(publicWebUrl)) {
+      return checkoutPageUrl(publicWebUrl, orderReference);
+    }
+
+    const publicApiUrl = new URL(this.env.PUBLIC_API_URL);
+    if (!isPublicHttpsUrl(publicApiUrl)) {
+      throw new ApiError(
+        503,
+        "MERCADO_PAGO_RETURN_URL_INVALID",
+        "O pagamento online esta temporariamente indisponivel.",
+      );
+    }
+
+    const callbackUrl = new URL("/checkout/return", publicApiUrl);
+    callbackUrl.searchParams.set("order", orderReference);
+    return callbackUrl.toString();
   }
+}
+
+export function checkoutPageUrl(
+  publicWebUrl: string | URL,
+  orderReference: string,
+) {
+  const url = new URL("/checkout/sandbox", publicWebUrl);
+  url.searchParams.set("order", orderReference);
+  return url.toString();
+}
+
+function isPublicHttpsUrl(url: URL) {
+  const hostname = url.hostname.toLowerCase();
+  return (
+    url.protocol === "https:" &&
+    hostname !== "localhost" &&
+    hostname !== "127.0.0.1" &&
+    hostname !== "::1"
+  );
 }
 
 function centsToMercadoPagoAmount(value: number) {

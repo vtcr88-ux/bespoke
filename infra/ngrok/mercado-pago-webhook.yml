@@ -1,0 +1,8 @@
+on_http_request:
+  - name: Block requests outside the Mercado Pago test surface
+    expressions:
+      - "!((req.method == 'POST' && req.url.path == '/webhooks/mercado-pago') || (req.method == 'GET' && (req.url.path == '/health' || req.url.path == '/checkout/return')))"
+    actions:
+      - type: deny
+        config:
+          status_code: 404

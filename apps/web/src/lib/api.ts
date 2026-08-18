@@ -5,6 +5,10 @@ import {
   type CheckoutRequest,
   type CheckoutResponse,
   type CheckoutStatusResponse,
+  type PaymentMethodsResponse,
+  type PixCheckoutRequest,
+  type PixCheckoutResponse,
+  type PixPaymentDetails,
   type PricedCart,
   type Product,
   type StorefrontSettings,
@@ -12,7 +16,15 @@ import {
   type WhatsappResponse,
 } from "@bespoke/contracts";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:3333";
+export function resolveApiBaseUrl(
+  configuredUrl: string | undefined,
+) {
+  const configured = configuredUrl?.trim();
+  if (configured) return configured.replace(/\/+$/, "");
+  return "/api";
+}
+
+const apiBaseUrl = resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 export const storefrontEventsUrl = `${apiBaseUrl}/storefront/events`;
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -43,7 +55,18 @@ export function listProducts(
   cursor?: string,
   signal?: AbortSignal,
 ) {
-  const params = new URLSearchParams(searchParams);
+  const params = new URLSearchParams();
+  for (const name of [
+    "cursor",
+    "limit",
+    "search",
+    "category",
+    "featured",
+    "sort",
+  ]) {
+    const value = searchParams.get(name);
+    if (value) params.set(name, value);
+  }
   if (!params.has("limit")) params.set("limit", "8");
   if (cursor) params.set("cursor", cursor);
   return api<CatalogResponse>(`/catalog/products?${params.toString()}`, {
@@ -107,6 +130,37 @@ export function createCheckout(payload: CheckoutRequest) {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export function getPaymentMethods() {
+  return api<PaymentMethodsResponse>("/checkout/payment-methods");
+}
+
+export function createPixCheckout(payload: PixCheckoutRequest) {
+  return api<PixCheckoutResponse>("/checkout/pix", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getPixPayment(orderReference: string, token: string) {
+  return api<PixPaymentDetails>(
+    `/checkout/orders/${encodeURIComponent(orderReference)}/pix`,
+    { headers: { authorization: `Bearer ${token}` } },
+  );
+}
+
+export function recordPixWhatsappOpen(
+  orderReference: string,
+  token: string,
+) {
+  return api<void>(
+    `/checkout/orders/${encodeURIComponent(orderReference)}/pix/whatsapp-open`,
+    {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+    },
+  );
 }
 
 export function createWhatsappRequest(payload: WhatsappRequest) {

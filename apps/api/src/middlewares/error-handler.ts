@@ -14,6 +14,12 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
   }
 
   if (error instanceof ApiError) {
+    if (error.statusCode >= 500) {
+      req.log?.error(
+        { err: error.cause ?? error, requestId: req.requestId },
+        "request_failed",
+      );
+    }
     return res.status(error.statusCode).json({
       error: {
         code: error.code,

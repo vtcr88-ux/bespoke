@@ -90,6 +90,20 @@ for (const templatePath of [
   }
 }
 
+const publicNginx = await readFile(
+  "infra/nginx/public-site.conf.template",
+  "utf8",
+);
+if (
+  !publicNginx.includes(
+    "frame-ancestors 'self' https://__ADMIN_DOMAIN__",
+  )
+) {
+  throw new Error(
+    "Public Nginx must authorize the instance Admin domain for the live preview.",
+  );
+}
+
 const forbiddenShippingPattern =
   /correios|destinationPostalCode|shippingQuote|shipping\/quote/i;
 for (const sourceRoot of ["apps/api/src", "apps/web/src"]) {

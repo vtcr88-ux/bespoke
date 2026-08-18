@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import mysql, {
@@ -10,16 +10,18 @@ import mysql, {
 } from "mysql2/promise";
 import type {
   AdminCategoryInput,
+  AdminOrderArchiveInput,
   AdminOrderUpdate,
   AdminProductInput,
   AdminProductRow,
   Category,
   PaymentStatus,
+  PixSettings,
   PricedCart,
   Product,
   StorefrontSettings,
 } from "@bespoke/contracts";
-import { storefrontSettingsSchema } from "@bespoke/contracts";
+import { pixSettingsSchema, storefrontSettingsSchema } from "@bespoke/contracts";
 import {
   categories as demoCategories,
   products as demoProducts,
@@ -27,11 +29,14 @@ import {
 import { ApiError, assertFound } from "../../shared/api-error.js";
 import {
   defaultStorefront,
+  defaultPixSettings,
   normalizeStorefrontSettings,
   orderItemsFromCart,
   slugify,
   type CommerceStoreAdapter,
+  type OrdersQuery,
   type PaymentUpdateResult,
+  type PixOrderCreationResult,
   type StoredOrder,
   uniqueCategorySlug,
   uniqueSku,
@@ -84,6 +89,8 @@ type OrderRow = RowDataPacket & {
   currency: "BRL";
   sales_channel: "online" | "whatsapp";
   payment_status: StoredOrder["paymentStatus"];
+  payment_method: StoredOrder["paymentMethod"];
+  pix_payload: string | null;
   shipping_mode: StoredOrder["shippingMode"];
   shipping_status: StoredOrder["shippingStatus"];
   contact_status: StoredOrder["contactStatus"];
@@ -93,6 +100,8 @@ type OrderRow = RowDataPacket & {
   delivery_method: StoredOrder["deliveryMethod"];
   delivery_address: string | null;
   pickup_instructions: string | null;
+  revenue_confirmed_at: Date | null;
+  archived_at: Date | null;
   created_at: Date;
   updated_at: Date;
   customer_name: string | null;
@@ -112,10 +121,11 @@ type OrderItemRow = RowDataPacket & {
 };
 
 type SettingRow = RowDataPacket & {
-  setting_value: StorefrontSettings | string;
+  setting_value: StorefrontSettings | PixSettings | string;
 };
 
 const storefrontSettingKey = "storefront.visual";
+const pixSettingKey = "payments.pix.manual";
 const projectRoot = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../../../../..",
@@ -605,6 +615,130 @@ export class MySqlCommerceStore implements CommerceStoreAdapter {
     );
   }
 
+  async createPixOrder(input: {
+    orderReference: string;
+    operationId: string;
+    requestHash: string;
+    checkoutAccessTokenHash: string;
+    customer: { name: string; email: string; phone: string };
+    priced: PricedCart;
+    pixPayload: string;
+  }): Promise<PixOrderCreationResult> {
+    await this.ensureSeeded();
+    const orderId = randomUUID();
+    const userId = await this.upsertCheckoutUser(input.customer);
+    const idempotencyKey = `pix-${input.operationId}`;
+    const connection = await this.pool.getConnection();
+    let reused = false;
+
+    try {
+      await connection.beginTransaction();
+      try {
+        await connection.execute(
+          `
+            INSERT INTO idempotency_keys (
+              id, idempotency_key, operation, request_hash
+            ) VALUES (?, ?, 'pix_manual_checkout', ?)
+          `,
+          [randomUUID(), idempotencyKey, input.requestHash],
+        );
+      } catch (error) {
+        if (!isDuplicateEntry(error)) throw error;
+        const [rows] = await connection.query<
+          Array<RowDataPacket & { request_hash: string }>
+        >(
+          `
+            SELECT request_hash
+            FROM idempotency_keys
+            WHERE idempotency_key = ?
+            LIMIT 1
+            FOR UPDATE
+          `,
+          [idempotencyKey],
+        );
+        if (rows[0]?.request_hash !== input.requestHash) {
+          throw new ApiError(
+            409,
+            "IDEMPOTENCY_KEY_REUSED",
+            "Esta tentativa de pagamento ja foi usada para outro carrinho.",
+          );
+        }
+        reused = true;
+      }
+
+      if (!reused) {
+        await connection.execute(
+          `
+            INSERT INTO orders (
+              id, user_id, public_reference, checkout_access_token_hash, status,
+              subtotal_in_cents, discount_in_cents, shipping_in_cents,
+              total_in_cents, currency, sales_channel, shipping_mode,
+              shipping_status, contact_status, delivery_method
+            ) VALUES (?, ?, ?, ?, 'pending_payment', ?, ?, NULL, ?, 'BRL', 'online',
+              'whatsapp_after_payment', 'awaiting_payment', 'not_started', 'undecided')
+          `,
+          [
+            orderId,
+            userId,
+            input.orderReference,
+            input.checkoutAccessTokenHash,
+            input.priced.subtotalInCents,
+            input.priced.discountInCents,
+            input.priced.totalInCents,
+          ],
+        );
+        await insertOrderItems(connection, orderId, input.priced);
+        await connection.execute(
+          "INSERT INTO order_status_history (id, order_id, previous_status, new_status, reason) VALUES (?, ?, NULL, 'pending_payment', ?)",
+          [randomUUID(), orderId, "Pedido criado para pagamento via Pix."],
+        );
+        await connection.execute(
+          `
+            INSERT INTO payments (
+              id, order_id, provider, status, amount_in_cents, currency,
+              idempotency_key, pix_payload
+            ) VALUES (?, ?, 'pix_manual', 'pending', ?, 'BRL', ?, ?)
+          `,
+          [
+            randomUUID(),
+            orderId,
+            input.priced.totalInCents,
+            idempotencyKey,
+            input.pixPayload,
+          ],
+        );
+        await connection.execute(
+          `
+            UPDATE idempotency_keys
+            SET response_hash = ?
+            WHERE idempotency_key = ?
+          `,
+          [
+            createHash("sha256").update(input.orderReference).digest("hex"),
+            idempotencyKey,
+          ],
+        );
+      }
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    return {
+      order: assertFound(
+        (await this.orders()).find(
+          (order) => order.publicReference === input.orderReference,
+        ),
+        "ORDER_NOT_FOUND",
+        "Order not found.",
+      ),
+      reused,
+    };
+  }
+
   async attachMercadoPagoPreference(
     orderReference: string,
     preferenceId: string | null,
@@ -768,10 +902,17 @@ export class MySqlCommerceStore implements CommerceStoreAdapter {
               WHEN ? = 'approved' THEN 'awaiting_contact'
               WHEN ? IN ('refunded', 'cancelled') THEN 'cancelled'
               ELSE shipping_status
+            END,
+            revenue_confirmed_at = CASE
+              WHEN ? = 'approved' THEN COALESCE(revenue_confirmed_at, CURRENT_TIMESTAMP)
+              WHEN ? IN ('refunded', 'cancelled') THEN NULL
+              ELSE revenue_confirmed_at
             END
           WHERE id = ?
         `,
         [
+          input.status,
+          input.status,
           input.status,
           input.status,
           input.status,
@@ -858,6 +999,173 @@ export class MySqlCommerceStore implements CommerceStoreAdapter {
     }
   }
 
+  async recordPixWhatsappOpen(
+    orderReference: string,
+    checkoutAccessTokenHash: string,
+  ): Promise<boolean> {
+    await this.ensureSeeded();
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [rows] = await connection.query<
+        Array<RowDataPacket & { order_id: string }>
+      >(
+        `
+          SELECT o.id AS order_id
+          FROM orders o
+          INNER JOIN payments p ON p.order_id = o.id
+          WHERE o.public_reference = ?
+            AND o.checkout_access_token_hash = ?
+            AND p.provider = 'pix_manual'
+            AND p.status IN ('pending', 'approved')
+          LIMIT 1
+          FOR UPDATE
+        `,
+        [orderReference, checkoutAccessTokenHash],
+      );
+      const order = rows[0];
+      if (!order) {
+        await connection.rollback();
+        return false;
+      }
+      await connection.execute(
+        `
+          UPDATE orders
+          SET
+            contact_status = CASE
+              WHEN contact_status = 'not_started' THEN 'whatsapp_opened'
+              ELSE contact_status
+            END,
+            whatsapp_opened_at = COALESCE(whatsapp_opened_at, CURRENT_TIMESTAMP)
+          WHERE id = ?
+        `,
+        [order.order_id],
+      );
+      await connection.execute(
+        `
+          INSERT INTO order_contact_events (id, order_id, event_type)
+          VALUES (?, ?, 'whatsapp_open_attempted')
+        `,
+        [randomUUID(), order.order_id],
+      );
+      await connection.commit();
+      return true;
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  async setPixPaymentStatus(
+    orderReference: string,
+    status: "approved" | "rejected",
+  ): Promise<StoredOrder> {
+    await this.ensureSeeded();
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [rows] = await connection.query<
+        Array<
+          RowDataPacket & {
+            order_id: string;
+            order_status: StoredOrder["status"];
+            payment_status: PaymentStatus;
+          }
+        >
+      >(
+        `
+          SELECT
+            o.id AS order_id,
+            o.status AS order_status,
+            p.status AS payment_status
+          FROM orders o
+          INNER JOIN payments p ON p.order_id = o.id
+          WHERE o.public_reference = ? AND p.provider = 'pix_manual'
+          LIMIT 1
+          FOR UPDATE
+        `,
+        [orderReference],
+      );
+      const current = rows[0];
+      if (!current) {
+        throw new ApiError(
+          404,
+          "PIX_ORDER_NOT_FOUND",
+          "Pedido Pix nao encontrado.",
+        );
+      }
+      if (current.payment_status !== status) {
+        if (["approved", "rejected"].includes(current.payment_status)) {
+          throw new ApiError(
+            409,
+            "PIX_PAYMENT_ALREADY_REVIEWED",
+            "Este pagamento Pix ja foi revisado.",
+          );
+        }
+        const nextOrderStatus = status === "approved" ? "paid" : "cancelled";
+        await connection.execute(
+          `
+            UPDATE payments
+            SET status = ?, manual_reviewed_at = CURRENT_TIMESTAMP
+            WHERE order_id = ? AND provider = 'pix_manual'
+          `,
+          [status, current.order_id],
+        );
+        await connection.execute(
+          `
+            UPDATE orders
+            SET
+              status = ?,
+              shipping_status = ?,
+              revenue_confirmed_at = CASE
+                WHEN ? = 'approved' THEN COALESCE(revenue_confirmed_at, CURRENT_TIMESTAMP)
+                ELSE NULL
+              END
+            WHERE id = ?
+          `,
+          [
+            nextOrderStatus,
+            status === "approved" ? "awaiting_contact" : "cancelled",
+            status,
+            current.order_id,
+          ],
+        );
+        await connection.execute(
+          `
+            INSERT INTO order_status_history (
+              id, order_id, previous_status, new_status, reason
+            ) VALUES (?, ?, ?, ?, ?)
+          `,
+          [
+            randomUUID(),
+            current.order_id,
+            current.order_status,
+            nextOrderStatus,
+            status === "approved"
+              ? "Pagamento Pix confirmado manualmente no painel."
+              : "Pagamento Pix rejeitado manualmente no painel.",
+          ],
+        );
+      }
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    return assertFound(
+      (await this.orders()).find(
+        (order) => order.publicReference === orderReference,
+      ),
+      "ORDER_NOT_FOUND",
+      "Order not found.",
+    );
+  }
+
   async updateOrder(
     orderReference: string,
     input: AdminOrderUpdate,
@@ -909,8 +1217,77 @@ export class MySqlCommerceStore implements CommerceStoreAdapter {
     );
   }
 
-  async orders(): Promise<StoredOrder[]> {
+  async setWhatsappRevenueConfirmed(
+    orderReference: string,
+    confirmed: boolean,
+  ): Promise<StoredOrder> {
     await this.ensureSeeded();
+    const existing = assertFound(
+      (await this.orders()).find(
+        (order) =>
+          order.publicReference === orderReference &&
+          order.salesChannel === "whatsapp",
+      ),
+      "ORDER_NOT_FOUND",
+      "Order not found.",
+    );
+    if (Boolean(existing.revenueConfirmedAt) === confirmed) return existing;
+    await this.pool.execute<ResultSetHeader>(
+      `
+        UPDATE whatsapp_purchase_requests
+        SET revenue_confirmed_at = CASE
+          WHEN ? THEN COALESCE(revenue_confirmed_at, CURRENT_TIMESTAMP)
+          ELSE NULL
+        END
+        WHERE public_reference = ?
+      `,
+      [confirmed, orderReference],
+    );
+    return assertFound(
+      (await this.orders()).find(
+        (order) => order.publicReference === orderReference,
+      ),
+      "ORDER_NOT_FOUND",
+      "Order not found.",
+    );
+  }
+
+  async setOrdersArchived(input: AdminOrderArchiveInput): Promise<number> {
+    await this.ensureSeeded();
+    const connection = await this.pool.getConnection();
+    let changed = 0;
+    try {
+      await connection.beginTransaction();
+      for (const reference of input.references) {
+        const archivedAt = input.archived ? new Date() : null;
+        const expectedNull = input.archived ? 1 : 0;
+        const [online] = await connection.execute<ResultSetHeader>(
+          `UPDATE orders SET archived_at = ?
+           WHERE public_reference = ? AND (archived_at IS NULL) = ?`,
+          [archivedAt, reference, expectedNull],
+        );
+        const [whatsapp] = await connection.execute<ResultSetHeader>(
+          `UPDATE whatsapp_purchase_requests SET archived_at = ?
+           WHERE public_reference = ? AND (archived_at IS NULL) = ?`,
+          [archivedAt, reference, expectedNull],
+        );
+        changed += online.affectedRows + whatsapp.affectedRows;
+      }
+      await connection.commit();
+      return changed;
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  }
+
+  async orders(query: OrdersQuery = {}): Promise<StoredOrder[]> {
+    await this.ensureSeeded();
+    const archiveCondition = query.archived
+      ? "archived_at IS NOT NULL"
+      : "archived_at IS NULL";
     const [onlineRows] = await this.pool.query<OrderRow[]>(
       `
         SELECT
@@ -923,7 +1300,9 @@ export class MySqlCommerceStore implements CommerceStoreAdapter {
           o.total_in_cents,
           o.currency,
           o.sales_channel,
+          p.provider AS payment_method,
           p.status AS payment_status,
+          p.pix_payload,
           o.shipping_mode,
           o.shipping_status,
           o.contact_status,
@@ -933,14 +1312,17 @@ export class MySqlCommerceStore implements CommerceStoreAdapter {
           o.delivery_method,
           o.delivery_address,
           o.pickup_instructions,
+          o.revenue_confirmed_at,
+          o.archived_at,
           o.created_at,
           o.updated_at,
           u.name AS customer_name,
           u.email AS customer_email,
           u.phone AS customer_phone
         FROM orders o
-        LEFT JOIN payments p ON p.order_id = o.id AND p.provider = 'mercado_pago'
+        LEFT JOIN payments p ON p.order_id = o.id
         LEFT JOIN users u ON u.id = o.user_id
+        WHERE o.${archiveCondition}
       `,
     );
     const [onlineItems] = await this.pool.query<OrderItemRow[]>(
@@ -961,7 +1343,9 @@ export class MySqlCommerceStore implements CommerceStoreAdapter {
           total_in_cents,
           'BRL' AS currency,
           'whatsapp' AS sales_channel,
+          NULL AS payment_method,
           NULL AS payment_status,
+          NULL AS pix_payload,
           'manual' AS shipping_mode,
           'awaiting_contact' AS shipping_status,
           'whatsapp_opened' AS contact_status,
@@ -971,12 +1355,15 @@ export class MySqlCommerceStore implements CommerceStoreAdapter {
           'undecided' AS delivery_method,
           NULL AS delivery_address,
           NULL AS pickup_instructions,
+          revenue_confirmed_at,
+          archived_at,
           created_at,
           updated_at,
           NULL AS customer_name,
           NULL AS customer_email,
           NULL AS customer_phone
         FROM whatsapp_purchase_requests
+        WHERE ${archiveCondition}
       `,
     );
     const [whatsappItems] = await this.pool.query<OrderItemRow[]>(
@@ -1073,6 +1460,33 @@ export class MySqlCommerceStore implements CommerceStoreAdapter {
     }
   }
 
+  async pixSettings(): Promise<PixSettings> {
+    await this.ensureSeeded();
+    const [rows] = await this.pool.query<SettingRow[]>(
+      "SELECT setting_value FROM store_settings WHERE setting_key = ? LIMIT 1",
+      [pixSettingKey],
+    );
+    if (!rows[0]) return defaultPixSettings;
+    const settingValue =
+      typeof rows[0].setting_value === "string"
+        ? JSON.parse(rows[0].setting_value)
+        : rows[0].setting_value;
+    return pixSettingsSchema.parse(settingValue);
+  }
+
+  async updatePixSettings(input: PixSettings): Promise<PixSettings> {
+    const settings = pixSettingsSchema.parse(input);
+    await this.pool.execute(
+      `
+        INSERT INTO store_settings (id, setting_key, setting_value)
+        VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)
+      `,
+      [randomUUID(), pixSettingKey, JSON.stringify(settings)],
+    );
+    return settings;
+  }
+
   private async ensureSeeded() {
     if (this.seeded) return;
     if (!this.autoSetup) {
@@ -1093,6 +1507,14 @@ export class MySqlCommerceStore implements CommerceStoreAdapter {
           ON DUPLICATE KEY UPDATE setting_key = setting_key
         `,
         [randomUUID(), storefrontSettingKey, JSON.stringify(defaultStorefront)],
+      );
+      await connection.execute(
+        `
+          INSERT INTO store_settings (id, setting_key, setting_value)
+          VALUES (?, ?, ?)
+          ON DUPLICATE KEY UPDATE setting_key = setting_key
+        `,
+        [randomUUID(), pixSettingKey, JSON.stringify(defaultPixSettings)],
       );
       await connection.commit();
       this.seeded = true;
@@ -1252,6 +1674,7 @@ function mapOrder(row: OrderRow, items: OrderItemRow[]): StoredOrder {
     customerPhone: row.customer_phone,
     status: row.status,
     salesChannel: row.sales_channel,
+    paymentMethod: row.payment_method,
     paymentStatus: row.payment_status,
     shippingMode: row.shipping_mode,
     shippingStatus: row.shipping_status,
@@ -1267,8 +1690,11 @@ function mapOrder(row: OrderRow, items: OrderItemRow[]): StoredOrder {
     pickupInstructions: row.pickup_instructions,
     shippingContactedAt: row.shipping_contacted_at?.toISOString() ?? null,
     shippingArrangedAt: row.shipping_arranged_at?.toISOString() ?? null,
+    revenueConfirmedAt: row.revenue_confirmed_at?.toISOString() ?? null,
+    archivedAt: row.archived_at?.toISOString() ?? null,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
+    pixPayload: row.pix_payload,
     items: items.map((item) => ({
       productId: item.product_id,
       name: item.product_name,
@@ -1405,6 +1831,8 @@ async function ensureSchema(connection: PoolConnection) {
   );
   await applyMigration(connection, "006_storefront_setting_revisions.sql");
   await applyMigration(connection, "007_product_low_stock_warning.sql");
+  await applyMigration(connection, "008_order_reporting_and_archiving.sql");
+  await applyMigration(connection, "009_manual_pix_payment.sql");
   await ensureWhatsappItemImageColumn(connection);
 }
 

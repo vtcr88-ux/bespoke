@@ -1,5 +1,6 @@
 node_modules/
 dist/
+dist-demo/
 coverage/
 .env
 .env.*
@@ -28,6 +29,7 @@ instances/*/rendered/
 # Logs locais
 logs/
 *.out
+.runtime/
 
 # Capturas geradas por ferramentas
 apps/web/.impeccable/screenshots/

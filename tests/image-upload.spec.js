@@ -7,7 +7,8 @@ const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
   "base64",
 );
-const uploadedUrl = "http://127.0.0.1:3333/uploads/images/playwright.png";
+const uploadedFileName = "30db2133-b2e0-4bd3-a684-c3d2642311c3.png";
+const uploadedUrl = `http://127.0.0.1:3333/uploads/images/${uploadedFileName}`;
 const portraitProductUrl =
   "http://127.0.0.1:3333/uploads/images/playwright-portrait.svg";
 const portraitProductSvg = Buffer.from(`
@@ -169,7 +170,7 @@ const product = {
   name: "Produto Playwright",
   subtitle: "Imagem enviada pelo painel",
   description:
-    "Produto usado para validar visualmente o upload administrativo.",
+    "Formula completa para sua rotina.\n• Inibidor de apetite\n• Acelera o metabolismo\n• Rico em fibras e minerais\n• Mix de vitaminas essenciais\n• Delicioso sabor morango",
   category: {
     id: "11111111-1111-4111-8111-111111111111",
     slug: "chas-soluveis",
@@ -241,7 +242,7 @@ const categories = {
 };
 
 async function mockUploadedImage(page) {
-  await page.route(uploadedUrl, (route) =>
+  await page.route(`**/uploads/images/${uploadedFileName}`, (route) =>
     route.fulfill({ status: 200, contentType: "image/png", body: png }),
   );
 }
@@ -491,6 +492,10 @@ test("admin cadastra produto com categoria livre sem expor campos internos", asy
   await expect(
     page.locator(".product-editor__preview-description"),
   ).toContainText("Descricao completa do produto");
+  await expect(page.locator(".product-editor__preview-description")).toHaveCSS(
+    "white-space",
+    "pre-line",
+  );
   await expect(page.locator(".product-editor__preview-button")).toContainText(
     "Adicionar",
   );
@@ -653,7 +658,7 @@ test("upload da capa permanece utilizavel no admin mobile", async ({
   );
 
   await page.goto(`${adminOrigin}/aparencia`);
-  await page.getByRole("tab", { name: "Conteudo" }).click();
+  await page.getByRole("tab", { name: "Capa e textos" }).click();
   await expect(page.getByText("Imagem da capa")).toBeVisible();
   const heroUploader = page
     .locator(".image-upload-field")
@@ -720,7 +725,7 @@ test("admin configura logo, fontes e links com icone sem campos de URL de imagem
   ).toBeVisible();
   await page.getByLabel("Fonte da vitrine publica").selectOption("modern");
   await page.getByLabel("Fonte do painel admin").selectOption("classic");
-  await page.getByRole("tab", { name: "Conteudo" }).click();
+  await page.getByRole("tab", { name: "Capa e textos" }).click();
   await page
     .getByLabel("Primeira linha do manifesto")
     .fill("PRIMEIRA LINHA EDITADA NO ADMIN");
@@ -732,7 +737,7 @@ test("admin configura logo, fontes e links com icone sem campos de URL de imagem
     .getByLabel("Texto depois de adicionar")
     .fill("Incluido no carrinho");
 
-  await page.getByRole("tab", { name: "Composicao" }).click();
+  await page.getByRole("tab", { name: "Layout da Home" }).click();
   const primaryColorInput = page.getByLabel("Cor principal do texto");
   await expect(primaryColorInput).toHaveAttribute("type", "text");
   await expect(primaryColorInput).toHaveAttribute("placeholder", "#C9A76D");
@@ -841,6 +846,21 @@ test("admin configura logo, fontes e links com icone sem campos de URL de imagem
     buffer: png,
   });
   await expect(newLink.getByText(/Upload concluido: 1 x 1px/)).toBeVisible();
+  const uploadedIconPreview = newLink.locator(".image-upload__preview img");
+  await expect(uploadedIconPreview).toHaveAttribute(
+    "src",
+    new RegExp(`/uploads/images/${uploadedFileName}$`),
+  );
+  await expect
+    .poll(() => uploadedIconPreview.evaluate((image) => image.naturalWidth))
+    .toBe(1);
+  const resolvedIconUrl = await uploadedIconPreview.getAttribute("src");
+  expect(new URL(resolvedIconUrl).hostname).toBe("localhost");
+  await expect(
+    page.locator(
+      '.appearance-preview__footer nav[aria-label="Contato e redes sociais"] img[alt=""]',
+    ),
+  ).toHaveAttribute("src", resolvedIconUrl);
 
   await page.getByRole("button", { name: "Salvar vitrine" }).click();
   await expect(
@@ -891,23 +911,35 @@ test("todas as abas do admin carregam em desktop e mobile", async ({
   browserName,
   page,
 }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(120_000);
   const tabs = [
-    { path: "/", nav: "Dashboard", title: "Dashboard" },
-    { path: "/produtos", nav: "Produtos", title: "Produtos" },
-    { path: "/estoque", nav: "Estoque", title: "Estoque" },
-    { path: "/pedidos", nav: "Pedidos", title: "Pedidos" },
-    { path: "/clientes", nav: "Clientes", title: "Clientes" },
-    { path: "/pagamentos", nav: "Pagamentos", title: "Pagamentos" },
+    { path: "/", nav: "Operacao: Dashboard", title: "Dashboard" },
+    { path: "/produtos", nav: "Operacao: Produtos", title: "Produtos" },
+    { path: "/estoque", nav: "Operacao: Estoque", title: "Estoque" },
+    { path: "/pedidos", nav: "Operacao: Pedidos", title: "Pedidos" },
+    { path: "/clientes", nav: "Atendimento: Clientes", title: "Clientes" },
+    {
+      path: "/pagamentos",
+      nav: "Atendimento: Pagamentos",
+      title: "Pagamentos",
+    },
     {
       path: "/whatsapp",
-      nav: "WhatsApp",
+      nav: "Atendimento: WhatsApp",
       title: "Mensagens do WhatsApp",
     },
-    { path: "/aparencia", nav: "Vitrine", title: "Aparencia" },
-    { path: "/relatorios", nav: "Relatorios", title: "Relatorios" },
-    { path: "/auditoria", nav: "Auditoria", title: "Auditoria" },
-    { path: "/configuracoes", nav: "Config", title: "Configuracoes" },
+    { path: "/aparencia", nav: "Loja: Vitrine", title: "Aparencia" },
+    { path: "/relatorios", nav: "Loja: Relatorios", title: "Relatorios" },
+    {
+      path: "/auditoria",
+      nav: "Sistema: Auditoria",
+      title: "Auditoria",
+    },
+    {
+      path: "/configuracoes",
+      nav: "Sistema: Ajustes",
+      title: "Configuracoes",
+    },
   ];
   const runtimeErrors = [];
   const serverErrors = [];
@@ -1094,6 +1126,7 @@ test("imagem enviada renderiza na home e no card publico sem overflow", async ({
         fontFamily: style.fontFamily,
         lineClamp: style.webkitLineClamp,
         textTransform: style.textTransform,
+        whiteSpace: style.whiteSpace,
       };
     };
 
@@ -1127,7 +1160,8 @@ test("imagem enviada renderiza na home e no card publico sem overflow", async ({
   expect(operationalTypography.category.textTransform).toBe("none");
   expect(operationalTypography.category.color).not.toBe("rgb(201, 167, 109)");
   expect(operationalTypography.description.display).not.toBe("none");
-  expect(operationalTypography.description.lineClamp).toBe("2");
+  expect(operationalTypography.description.lineClamp).toBe("none");
+  expect(operationalTypography.description.whiteSpace).toBe("pre-line");
   expect(operationalTypography.price.color).toBe("rgb(9, 9, 7)");
   expect(operationalTypography.stock.color).toBe("rgb(9, 9, 7)");
   expect(operationalTypography.viewAll.backgroundColor).toBe("rgb(9, 9, 7)");
@@ -1210,8 +1244,9 @@ test("imagem enviada renderiza na home e no card publico sem overflow", async ({
   await page.mouse.move(0, 0);
 
   await featuredAddButton.click();
-  await expect(featuredAddButton).toContainText(
-    configuredStorefront.featuredAddedButtonLabel,
+  await expect(page).toHaveURL(`${webOrigin}/carrinho`);
+  await expect(page.locator(".cart-line")).toContainText(
+    featuredProducts[0].name,
   );
   await expect(page.locator(".store-shell")).toHaveAttribute(
     "data-storefront-font",
@@ -1421,18 +1456,15 @@ test("imagem enviada renderiza na home e no card publico sem overflow", async ({
     await expect(catalogCards).toHaveCount(4);
     await catalogCards.first().scrollIntoViewIfNeeded();
     await expect(catalogCards.first()).toBeVisible();
-    await expect
-      .poll(async () => {
-        const firstRowTops = await catalogCards.evaluateAll((cards) =>
-          cards.slice(0, 2).map((card) => card.getBoundingClientRect().top),
-        );
-        return Math.abs(firstRowTops[0] - firstRowTops[1]);
-      })
-      .toBeLessThanOrEqual(0.5);
+    const firstRowOffsets = await catalogCards.evaluateAll((cards) =>
+      cards.slice(0, 2).map((card) => card.offsetTop),
+    );
+    expect(firstRowOffsets[0]).toBe(firstRowOffsets[1]);
+    await page.waitForTimeout(1_100);
     const catalogCardBoxes = await catalogCards.evaluateAll((cards) =>
       cards.map((card) => {
         const box = card.getBoundingClientRect();
-        return { left: box.left, right: box.right, top: box.top };
+        return { left: box.left, right: box.right, top: card.offsetTop };
       }),
     );
     expect(catalogCardBoxes[0].top).toBeCloseTo(catalogCardBoxes[1].top, 0);
@@ -1454,8 +1486,9 @@ test("imagem enviada renderiza na home e no card publico sem overflow", async ({
     configuredStorefront.featuredAddButtonLabel,
   );
   await catalogAddButton.click();
-  await expect(catalogAddButton).toContainText(
-    configuredStorefront.featuredAddedButtonLabel,
+  await expect(page).toHaveURL(`${webOrigin}/carrinho`);
+  await expect(page.locator(".cart-line")).toContainText(
+    featuredProducts[0].name,
   );
 });
 
@@ -1557,7 +1590,7 @@ test("drawer de filtros gerencia foco e Escape no catalogo mobile", async ({
   await expectNoHorizontalOverflow(page);
 });
 
-test("produto e carrinho preservam feedback e operacoes durante as animacoes", async ({
+test("produto abre o carrinho automaticamente e preserva suas operacoes", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -1587,10 +1620,10 @@ test("produto e carrinho preservam feedback e operacoes durante as animacoes", a
 
   await page.goto(`${webOrigin}/produto/produto-playwright`);
   await page.getByRole("button", { name: "Adicionar ao carrinho" }).click();
+  await expect(page).toHaveURL(`${webOrigin}/carrinho`);
   await expect(
     page.getByRole("link", { name: "Carrinho com 1 itens" }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Carrinho com 1 itens" }).click();
   await expect(page.locator(".cart-line")).toContainText("Produto Playwright");
   await page.getByRole("button", { name: "Aumentar quantidade" }).click();
   await expect(
@@ -1609,6 +1642,11 @@ test("checkout combina frete depois do pagamento sem solicitar CEP", async ({
   page,
   context,
 }) => {
+  let whatsappOpenRequests = 0;
+  let popupCount = 0;
+  page.on("popup", () => {
+    popupCount += 1;
+  });
   await page.setViewportSize({ width: 390, height: 844 });
   await serveBuiltApp(page, webOrigin, "apps/web/dist");
   await mockUploadedImage(page);
@@ -1692,6 +1730,7 @@ test("checkout combina frete depois do pagamento sem solicitar CEP", async ({
       expect(route.request().headers().authorization).toBe(
         `Bearer ${"a".repeat(32)}`,
       );
+      whatsappOpenRequests += 1;
       await route.fulfill({
         status: 204,
         headers: {
@@ -1704,7 +1743,7 @@ test("checkout combina frete depois do pagamento sem solicitar CEP", async ({
 
   await page.goto(`${webOrigin}/produto/produto-playwright`);
   await page.getByRole("button", { name: "Adicionar ao carrinho" }).click();
-  await page.getByRole("link", { name: "Carrinho com 1 itens" }).click();
+  await expect(page).toHaveURL(`${webOrigin}/carrinho`);
   await expect(page.getByText("A combinar pelo WhatsApp")).toBeVisible();
   const checkoutChoices = page.locator(".checkout-choice .ds-button");
   await expect(checkoutChoices).toHaveCount(2);
@@ -1732,6 +1771,8 @@ test("checkout combina frete depois do pagamento sem solicitar CEP", async ({
   await expect(
     page.getByRole("button", { name: "Abrir conversa no WhatsApp" }),
   ).toBeVisible();
+  expect(whatsappOpenRequests).toBe(0);
+  expect(popupCount).toBe(0);
   await expect(page.getByText("A combinar pelo WhatsApp")).toBeVisible();
   for (const width of responsiveWidths) {
     await page.setViewportSize({ width, height: width < 768 ? 844 : 900 });

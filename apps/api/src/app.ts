@@ -17,7 +17,12 @@ import {
   cartPriceRequestSchema,
   catalogQuerySchema,
   checkoutRequestSchema,
+  pixCheckoutRequestSchema,
+  pixSettingsSchema,
+  adminPixPaymentDecisionSchema,
   adminOrderUpdateSchema,
+  adminOrderArchiveInputSchema,
+  adminWhatsappRevenueUpdateSchema,
   adminCategoryInputSchema,
   adminProductInputSchema,
   idSchema,
@@ -38,7 +43,12 @@ import { ApiError, assertFound } from "./shared/api-error.js";
 import { AdminService } from "./modules/admin/admin.service.js";
 import { CartService } from "./modules/cart/cart.service.js";
 import { CatalogService } from "./modules/catalog/catalog.service.js";
-import { CheckoutService } from "./modules/checkout/checkout.service.js";
+import {
+  checkoutPageUrl,
+  CheckoutService,
+  type MercadoPagoPreferenceCreate,
+} from "./modules/checkout/checkout.service.js";
+import { PixService } from "./modules/checkout/pix.service.js";
 import {
   MercadoPagoWebhookService,
   type MercadoPagoPaymentLookup,
@@ -47,6 +57,7 @@ import { CommerceStore } from "./modules/store/commerce.store.js";
 import { MySqlCommerceStore } from "./modules/store/mysql-commerce.store.js";
 import { WhatsappService } from "./modules/whatsapp/whatsapp.service.js";
 import { ImageUploadService } from "./modules/media/image-upload.service.js";
+import { publicStorefrontMedia } from "./modules/media/public-media-url.js";
 import { StorefrontChangeService } from "./modules/storefront/storefront-change.service.js";
 import { AdminAuthService } from "./modules/auth/admin-auth.service.js";
 
@@ -63,6 +74,9 @@ const adminLoginSchema = z
   })
   .strict();
 const orderReferenceSchema = z.string().trim().min(8).max(40);
+const adminOrdersQuerySchema = z
+  .object({ archived: z.enum(["true", "false"]).optional() })
+  .strict();
 const checkoutAccessTokenSchema = z.string().min(32).max(128);
 const mercadoPagoWebhookSchema = z
   .object({
@@ -138,15 +152,25 @@ function createStore(env: AppEnv) {
 
 export function createApp(
   env: AppEnv,
-  dependencies: { mercadoPagoPaymentLookup?: MercadoPagoPaymentLookup } = {},
+  dependencies: {
+    mercadoPagoPaymentLookup?: MercadoPagoPaymentLookup;
+    mercadoPagoPreferenceCreate?: MercadoPagoPreferenceCreate;
+  } = {},
 ) {
   const app = express();
   const uploadsRoot = resolveUploadsRoot(env, repoRoot);
   const store = createStore(env);
-  const catalog = new CatalogService(store);
+  const catalog = new CatalogService(store, env.PUBLIC_API_URL);
   const cart = new CartService(catalog);
   const whatsapp = new WhatsappService(cart, store, env);
-  const checkout = new CheckoutService(cart, store, env, whatsapp);
+  const checkout = new CheckoutService(
+    cart,
+    store,
+    env,
+    whatsapp,
+    dependencies.mercadoPagoPreferenceCreate,
+  );
+  const pix = new PixService(cart, store, env, whatsapp);
   const mercadoPagoWebhook = new MercadoPagoWebhookService(
     store,
     env,
@@ -217,6 +241,24 @@ export function createApp(
           new ApiError(403, "CORS_ORIGIN_DENIED", "Origin is not allowed."),
         );
       },
+    }),
+  );
+  app.use(
+    "/uploads/images/:fileName",
+    asyncRoute(async (req, res, next) => {
+      if (req.query.variant !== "logo") {
+        next();
+        return;
+      }
+
+      const fileName = req.params.fileName;
+      if (!fileName) {
+        throw new ApiError(404, "IMAGE_NOT_FOUND", "Imagem nao encontrada.");
+      }
+      const variant = await imageUploads.logoVariant(fileName);
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+      res.type(variant.contentType).send(variant.data);
     }),
   );
   app.use(
@@ -386,7 +428,9 @@ export function createApp(
     "/storefront/settings",
     asyncRoute(async (_req, res) => {
       res.setHeader("Cache-Control", "no-store");
-      res.json(await admin.storefront());
+      res.json(
+        publicStorefrontMedia(await admin.storefront(), env.PUBLIC_API_URL),
+      );
     }),
   );
 
@@ -453,6 +497,50 @@ export function createApp(
         next(error);
       }
     },
+  );
+
+  app.get(
+    "/checkout/payment-methods",
+    asyncRoute(async (_req, res) => {
+      res.setHeader("Cache-Control", "no-store");
+      res.json(await pix.paymentMethods());
+    }),
+  );
+
+  app.post(
+    "/checkout/pix",
+    validateBody(pixCheckoutRequestSchema),
+    asyncRoute(async (req, res) => {
+      const result = await pix.create(req.body);
+      res.status(result.reused ? 200 : 201).json(result);
+    }),
+  );
+
+  app.get(
+    "/checkout/orders/:reference/pix",
+    asyncRoute(async (req, res) => {
+      res.setHeader("Cache-Control", "no-store");
+      const reference = orderReferenceSchema.parse(req.params.reference);
+      res.json(await pix.details(reference, checkoutAccessToken(req)));
+    }),
+  );
+
+  app.post(
+    "/checkout/orders/:reference/pix/whatsapp-open",
+    asyncRoute(async (req, res) => {
+      const reference = orderReferenceSchema.parse(req.params.reference);
+      await pix.recordWhatsappOpen(reference, checkoutAccessToken(req));
+      res.status(204).send();
+    }),
+  );
+
+  app.get(
+    "/checkout/return",
+    asyncRoute((req, res) => {
+      const reference = orderReferenceSchema.parse(req.query.order);
+      res.setHeader("Cache-Control", "no-store");
+      res.redirect(302, checkoutPageUrl(env.PUBLIC_WEB_URL, reference));
+    }),
   );
 
   app.get(
@@ -622,8 +710,43 @@ export function createApp(
   app.get(
     "/admin/orders",
     requireAdmin(adminAuth, "orders:read"),
-    asyncRoute(async (_req, res) => {
-      res.json({ items: await admin.orders() });
+    validateQuery(adminOrdersQuerySchema),
+    asyncRoute(async (req, res) => {
+      res.json({ items: await admin.orders(req.query.archived === "true") });
+    }),
+  );
+
+  app.patch(
+    "/admin/orders/archive",
+    requireAdmin(adminAuth, "orders:write"),
+    validateBody(adminOrderArchiveInputSchema),
+    asyncRoute(async (req, res) => {
+      res.json({ changed: await admin.setOrdersArchived(req.body) });
+    }),
+  );
+
+  app.patch(
+    "/admin/orders/:reference/whatsapp-revenue",
+    requireAdmin(adminAuth, "orders:write"),
+    validateBody(adminWhatsappRevenueUpdateSchema),
+    asyncRoute(async (req, res) => {
+      const reference = orderReferenceSchema.parse(req.params.reference);
+      res.json(
+        await admin.setWhatsappRevenueConfirmed(
+          reference,
+          req.body.confirmed,
+        ),
+      );
+    }),
+  );
+
+  app.patch(
+    "/admin/orders/:reference/pix-payment",
+    requireAdmin(adminAuth, "orders:write"),
+    validateBody(adminPixPaymentDecisionSchema),
+    asyncRoute(async (req, res) => {
+      const reference = orderReferenceSchema.parse(req.params.reference);
+      res.json(await admin.setPixPaymentStatus(reference, req.body));
     }),
   );
 
@@ -641,7 +764,28 @@ export function createApp(
     "/admin/storefront",
     requireAdmin(adminAuth, "settings:write"),
     asyncRoute(async (_req, res) => {
-      res.json(await admin.storefront());
+      res.setHeader("Cache-Control", "no-store");
+      res.json(
+        publicStorefrontMedia(await admin.storefront(), env.PUBLIC_API_URL),
+      );
+    }),
+  );
+
+  app.get(
+    "/admin/payments/pix",
+    requireAdmin(adminAuth, "settings:write"),
+    asyncRoute(async (_req, res) => {
+      res.setHeader("Cache-Control", "no-store");
+      res.json(await admin.pixSettings());
+    }),
+  );
+
+  app.patch(
+    "/admin/payments/pix",
+    requireAdmin(adminAuth, "settings:write"),
+    validateBody(pixSettingsSchema),
+    asyncRoute(async (req, res) => {
+      res.json(await admin.updatePixSettings(req.body));
     }),
   );
 
@@ -664,7 +808,7 @@ export function createApp(
         ],
         req,
       );
-      res.json(settings);
+      res.json(publicStorefrontMedia(settings, env.PUBLIC_API_URL));
     }),
   );
 

@@ -9,11 +9,28 @@ import {
   defaultFooterLinks,
   defaultHomeSections,
   formatFooterCopyright,
+  formatProductCardDescription,
   orderFooterLinks,
+  productCardDescriptionMaxLength,
+  pixCheckoutRequestSchema,
+  pixSettingsSchema,
   storefrontSettingsSchema,
 } from "./index.js";
 
 describe("contracts", () => {
+  it("preserves card descriptions exactly up to the 200 character limit", () => {
+    const topics = formatProductCardDescription(
+      "° Inibidor de apetite\n- Acelera o metabolismo\n* Rico em fibras e minerais",
+    );
+    const longDescription = formatProductCardDescription("A".repeat(240));
+
+    expect(topics).toBe(
+      "° Inibidor de apetite\n- Acelera o metabolismo\n* Rico em fibras e minerais",
+    );
+    expect(longDescription).toHaveLength(productCardDescriptionMaxLength);
+    expect(longDescription.endsWith("…")).toBe(true);
+  });
+
   it("rejects unknown cart item fields", () => {
     const result = cartPriceRequestSchema.safeParse({
       items: [
@@ -61,6 +78,51 @@ describe("contracts", () => {
         destinationPostalCode: "01001001",
       }).success,
     ).toBe(false);
+  });
+
+  it("validates Pix settings and an idempotent checkout operation", () => {
+    expect(
+      pixSettingsSchema.safeParse({
+        enabled: true,
+        key: "financeiro@loja.test",
+        receiverName: "Loja Exemplo",
+        receiverCity: "Sao Paulo",
+      }).success,
+    ).toBe(true);
+    expect(
+      pixSettingsSchema.safeParse({
+        enabled: true,
+        key: "chave-invalida",
+        receiverName: "Loja Exemplo",
+        receiverCity: "Sao Paulo",
+      }).success,
+    ).toBe(false);
+    expect(
+      pixSettingsSchema.safeParse({
+        enabled: false,
+        key: "",
+        receiverName: "",
+        receiverCity: "",
+      }).success,
+    ).toBe(true);
+
+    expect(
+      pixCheckoutRequestSchema.safeParse({
+        operationId: "11111111-1111-4111-8111-111111111111",
+        items: [
+          {
+            productId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+            quantity: 1,
+          },
+        ],
+        customer: {
+          name: "Cliente Pix",
+          email: "pix@example.test",
+          phone: "11999999999",
+        },
+        shippingAcknowledged: true,
+      }).success,
+    ).toBe(true);
   });
 
   it("accepts safe footer destinations and rejects executable links", () => {
@@ -249,6 +311,13 @@ describe("contracts", () => {
     expect(settings.homeMotionByBlock.navigation).toBe("cascade");
     expect(settings.homeTextStyles.heroTitle.fontFamily).toBe("display");
     expect(settings.editorialNavigationMobileEnabled).toBe(false);
+    expect(settings.manifestoDividerMobileEnabled).toBe(false);
+    expect(
+      storefrontSettingsSchema.parse({
+        ...settings,
+        manifestoDividerMobileEnabled: true,
+      }).manifestoDividerMobileEnabled,
+    ).toBe(true);
     expect(
       storefrontSettingsSchema.safeParse({
         ...settings,
@@ -261,6 +330,94 @@ describe("contracts", () => {
         },
       }).success,
     ).toBe(false);
+  });
+
+  it("validates configurable reviews, catalog copy and header palette", () => {
+    const settings = storefrontSettingsSchema.parse({
+      brandName: "Bespoke",
+      logoUrl: "",
+      heroImageUrl: "https://example.com/hero.webp",
+      heroTitle: "Bespoke",
+      primaryColor: "#090907",
+      accentColor: "#c9a76d",
+      backgroundColor: "#ffffff",
+      reviewsEnabled: true,
+      reviewsItems: [
+        {
+          id: "00000000-0000-4000-8000-000000000401",
+          author: "Cliente verificado",
+          context: "Compra na loja",
+          content: "Atendimento cuidadoso e produto entregue como esperado.",
+          rating: 5,
+          enabled: true,
+        },
+      ],
+      catalogTitle: "Escolhas da loja",
+      headerBackgroundColor: "#102820",
+      headerTextColor: "#ffffff",
+      headerAccentColor: "#d7b56d",
+      headerButtonMode: "custom",
+      headerButtonBackgroundColor: "#ffffff",
+      headerButtonTextColor: "#102820",
+    });
+
+    expect(settings.reviewsItems).toHaveLength(1);
+    expect(settings.homeMotionByBlock.reviews).toBe("soft");
+    expect(settings.catalogTitle).toBe("Escolhas da loja");
+    expect(settings.headerButtonMode).toBe("custom");
+    expect(
+      storefrontSettingsSchema.safeParse({
+        ...settings,
+        headerAccentColor: "dourado",
+      }).success,
+    ).toBe(false);
+    expect(
+      storefrontSettingsSchema.safeParse({
+        ...settings,
+        reviewsItems: [{ ...settings.reviewsItems[0]!, rating: 6 }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("keeps per-manifesto typography and spacing backward compatible", () => {
+    const settings = storefrontSettingsSchema.parse({
+      brandName: "Bespoke",
+      logoUrl: "",
+      heroImageUrl: "https://example.com/hero.webp",
+      heroTitle: "Bespoke",
+      primaryColor: "#090907",
+      accentColor: "#c9a76d",
+      backgroundColor: "#ffffff",
+      manifestoItems: [
+        {
+          id: "00000000-0000-4000-8000-000000000402",
+          type: "headline",
+          content: "Manifesto configuravel",
+          enabled: true,
+          alignment: "center",
+          emphasis: "strong",
+        },
+      ],
+    });
+
+    expect(settings.manifestoItems[0]).toMatchObject({
+      fontFamily: "inherit",
+      fontSize: 0,
+      spacingAfter: 40,
+    });
+    expect(
+      storefrontSettingsSchema.parse({
+        ...settings,
+        manifestoItems: [
+          {
+            ...settings.manifestoItems[0]!,
+            fontFamily: "humanist",
+            fontSize: 54,
+            spacingAfter: 72,
+          },
+        ],
+      }).manifestoItems[0],
+    ).toMatchObject({ fontFamily: "humanist", fontSize: 54, spacingAfter: 72 });
   });
 
   it("keeps editable WhatsApp messages as plain complementary text", () => {
@@ -340,6 +497,61 @@ describe("contracts", () => {
     expect(settings.featuredAddButtonLabel).toBe("Adicionar");
     expect(settings.featuredAddedButtonLabel).toBe("Adicionado");
     expect(settings.footerColor).toBe("#c9a76d");
+  });
+
+  it("keeps Header and Catalog visual settings independent from Home defaults", () => {
+    const base = storefrontSettingsSchema.parse({
+      brandName: "Bespoke",
+      logoUrl: "",
+      heroImageUrl: "https://example.com/hero.webp",
+      heroTitle: "Bespoke",
+      manifestoLineOne: "PRIMEIRA LINHA",
+      manifestoLineTwo: "SEGUNDA LINHA",
+      primaryColor: "#090907",
+      accentColor: "#c9a76d",
+      backgroundColor: "#ffffff",
+    });
+    const customized = storefrontSettingsSchema.parse({
+      ...base,
+      primaryColor: "#111111",
+      homeSurfaceColor: "#f4f1ea",
+      headerBackgroundColor: "#102820",
+      headerFontFamily: "humanist",
+      headerButtonStyle: "outline",
+      headerLogoWidth: 340,
+      catalogBackgroundColor: "#eef4f0",
+      catalogAccentColor: "#217a61",
+      catalogColumnsDesktop: 3,
+      catalogColumnsTablet: 3,
+      catalogColumnsMobile: 1,
+      catalogImageRatio: "portrait",
+      catalogTextStyles: {
+        ...base.catalogTextStyles,
+        title: {
+          color: "#173c31",
+          fontSize: 72,
+          spacingAfter: 16,
+          fontFamily: "editorial",
+        },
+      },
+    });
+
+    expect(customized).toMatchObject({
+      homeSurfaceColor: "#f4f1ea",
+      headerBackgroundColor: "#102820",
+      headerFontFamily: "humanist",
+      headerButtonStyle: "outline",
+      catalogBackgroundColor: "#eef4f0",
+      catalogAccentColor: "#217a61",
+      catalogColumnsDesktop: 3,
+      catalogColumnsMobile: 1,
+    });
+    expect(customized.catalogTextStyles.title).toMatchObject({
+      color: "#173c31",
+      fontSize: 72,
+      fontFamily: "editorial",
+    });
+    expect(customized.homeTextStyles).toEqual(base.homeTextStyles);
   });
 
   it("accepts an empty manifesto and rejects invalid Home composition", () => {

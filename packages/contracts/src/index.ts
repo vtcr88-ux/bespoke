@@ -18,6 +18,23 @@ export const supportedImageContentTypeSchema = z.enum(
   supportedImageContentTypes,
 );
 export const maxImageUploadBytes = 8 * 1024 * 1024;
+export const productCardDescriptionMaxLength = 200;
+
+export function formatProductCardDescription(description: string) {
+  if (description.length <= productCardDescriptionMaxLength) return description;
+
+  const clipped = description.slice(0, productCardDescriptionMaxLength - 1);
+  const lastBoundary = Math.max(
+    clipped.lastIndexOf(" "),
+    clipped.lastIndexOf("\n"),
+  );
+  const safeBoundary =
+    lastBoundary >= productCardDescriptionMaxLength * 0.75
+      ? lastBoundary
+      : clipped.length;
+
+  return `${clipped.slice(0, safeBoundary).trimEnd()}…`;
+}
 
 export const imageUploadResponseSchema = z.object({
   url: z.string().url(),
@@ -43,6 +60,8 @@ export const typographyPresetSchema = z.enum([
   "signature",
   "modern",
   "classic",
+  "humanist",
+  "editorial",
 ]);
 
 const footerHrefSchema = z
@@ -153,6 +172,8 @@ export const storefrontTextFontSchema = z.enum([
   "body",
   "modern",
   "classic",
+  "humanist",
+  "editorial",
 ]);
 
 const storefrontTextStyleSchema = z
@@ -180,7 +201,7 @@ export const defaultStorefrontTextStyles = {
   manifesto: {
     color: "",
     fontSize: 68,
-    spacingAfter: 36,
+    spacingAfter: 40,
     fontFamily: "display",
   },
   navigation: {
@@ -207,6 +228,24 @@ export const defaultStorefrontTextStyles = {
     spacingAfter: 12,
     fontFamily: "display",
   },
+  reviewsEyebrow: {
+    color: "",
+    fontSize: 13,
+    spacingAfter: 12,
+    fontFamily: "body",
+  },
+  reviewsTitle: {
+    color: "",
+    fontSize: 48,
+    spacingAfter: 20,
+    fontFamily: "display",
+  },
+  reviewsBody: {
+    color: "",
+    fontSize: 16,
+    spacingAfter: 0,
+    fontFamily: "body",
+  },
   footerSlogan: {
     color: "",
     fontSize: 14,
@@ -224,7 +263,74 @@ const homeTextStylesSchema = z
     featuredEyebrow: storefrontTextStyleSchema,
     featuredTitle: storefrontTextStyleSchema,
     productCardTitle: storefrontTextStyleSchema,
+    reviewsEyebrow: storefrontTextStyleSchema,
+    reviewsTitle: storefrontTextStyleSchema,
+    reviewsBody: storefrontTextStyleSchema,
     footerSlogan: storefrontTextStyleSchema,
+  })
+  .strict();
+
+export const defaultCatalogTextStyles = {
+  eyebrow: {
+    color: "",
+    fontSize: 13,
+    spacingAfter: 12,
+    fontFamily: "body",
+  },
+  title: {
+    color: "",
+    fontSize: 64,
+    spacingAfter: 0,
+    fontFamily: "display",
+  },
+  description: {
+    color: "",
+    fontSize: 17,
+    spacingAfter: 0,
+    fontFamily: "body",
+  },
+  category: {
+    color: "",
+    fontSize: 12,
+    spacingAfter: 8,
+    fontFamily: "modern",
+  },
+  cardTitle: {
+    color: "",
+    fontSize: 20,
+    spacingAfter: 8,
+    fontFamily: "modern",
+  },
+  cardDescription: {
+    color: "",
+    fontSize: 15,
+    spacingAfter: 0,
+    fontFamily: "modern",
+  },
+  price: {
+    color: "",
+    fontSize: 22,
+    spacingAfter: 0,
+    fontFamily: "modern",
+  },
+  button: {
+    color: "",
+    fontSize: 14,
+    spacingAfter: 0,
+    fontFamily: "modern",
+  },
+} as const;
+
+const catalogTextStylesSchema = z
+  .object({
+    eyebrow: storefrontTextStyleSchema,
+    title: storefrontTextStyleSchema,
+    description: storefrontTextStyleSchema,
+    category: storefrontTextStyleSchema,
+    cardTitle: storefrontTextStyleSchema,
+    cardDescription: storefrontTextStyleSchema,
+    price: storefrontTextStyleSchema,
+    button: storefrontTextStyleSchema,
   })
   .strict();
 
@@ -243,6 +349,7 @@ export const defaultHomeMotionByBlock = {
   navigation: "cascade",
   featuredHeading: "scroll",
   productCards: "cascade",
+  reviews: "soft",
   footer: "soft",
 } as const;
 
@@ -252,6 +359,7 @@ const homeMotionByBlockSchema = z
     navigation: homeMotionPresetSchema,
     featuredHeading: homeMotionPresetSchema,
     productCards: homeMotionPresetSchema,
+    reviews: homeMotionPresetSchema,
     footer: homeMotionPresetSchema,
   })
   .strict();
@@ -264,6 +372,9 @@ export const defaultManifestoItems = [
     enabled: true,
     alignment: "center",
     emphasis: "strong",
+    fontFamily: "inherit",
+    fontSize: 0,
+    spacingAfter: 40,
   },
   {
     id: "00000000-0000-4000-8000-000000000302",
@@ -272,6 +383,9 @@ export const defaultManifestoItems = [
     enabled: true,
     alignment: "center",
     emphasis: "strong",
+    fontFamily: "inherit",
+    fontSize: 0,
+    spacingAfter: 40,
   },
 ] as const;
 
@@ -300,6 +414,103 @@ export const paymentStatusSchema = z.enum([
   "cancelled",
   "refunded",
 ]);
+
+export const paymentMethodSchema = z.enum(["mercado_pago", "pix_manual"]);
+
+const pixKeySchema = z
+  .string()
+  .trim()
+  .max(77)
+  .refine(
+    (value) =>
+      ![...value].some((character) => {
+        const code = character.charCodeAt(0);
+        return code <= 31 || code === 127;
+      }),
+    "A chave Pix contem caracteres invalidos.",
+  )
+  .refine(
+    (value) => value === "" || isValidPixKey(value),
+    "Informe uma chave Pix valida: CPF, CNPJ, telefone com +55, e-mail ou chave aleatoria.",
+  );
+
+function isValidPixKey(value: string) {
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return true;
+  if (/^\+[1-9]\d{7,14}$/.test(value)) return true;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+    return true;
+  }
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 11) return hasValidDocumentDigits(digits, 9);
+  if (digits.length === 14) return hasValidDocumentDigits(digits, 12);
+  return false;
+}
+
+function hasValidDocumentDigits(value: string, baseLength: 9 | 12) {
+  if (/^(\d)\1+$/.test(value)) return false;
+  if (baseLength === 9) {
+    const first = documentCheckDigit(value.slice(0, 9), 10);
+    const second = documentCheckDigit(`${value.slice(0, 9)}${first}`, 11);
+    return value.endsWith(`${first}${second}`);
+  }
+  const first = cnpjCheckDigit(value.slice(0, 12));
+  const second = cnpjCheckDigit(`${value.slice(0, 12)}${first}`);
+  return value.endsWith(`${first}${second}`);
+}
+
+function documentCheckDigit(value: string, startWeight: number) {
+  const sum = [...value].reduce(
+    (total, digit, index) => total + Number(digit) * (startWeight - index),
+    0,
+  );
+  const remainder = (sum * 10) % 11;
+  return remainder === 10 ? 0 : remainder;
+}
+
+function cnpjCheckDigit(value: string) {
+  const weights = value.length === 12
+    ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+    : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  const sum = [...value].reduce(
+    (total, digit, index) => total + Number(digit) * weights[index]!,
+    0,
+  );
+  const remainder = sum % 11;
+  return remainder < 2 ? 0 : 11 - remainder;
+}
+
+export const pixSettingsSchema = z
+  .object({
+    enabled: z.boolean().default(false),
+    key: pixKeySchema.default(""),
+    receiverName: z.string().trim().max(100).default(""),
+    receiverCity: z.string().trim().max(100).default(""),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    if (!input.enabled) return;
+    const requiredFields = [
+      ["key", input.key, 3],
+      ["receiverName", input.receiverName, 2],
+      ["receiverCity", input.receiverCity, 2],
+    ] as const;
+    for (const [field, value, minimum] of requiredFields) {
+      if (value.length < minimum) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [field],
+          message: "Preencha este campo para ativar o Pix.",
+        });
+      }
+    }
+  });
+
+export const paymentMethodsResponseSchema = z
+  .object({
+    pixManualEnabled: z.boolean(),
+    mercadoPagoEnabled: z.boolean(),
+  })
+  .strict();
 
 export const shippingModeSchema = z.enum([
   "legacy_calculated",
@@ -455,6 +666,44 @@ export const checkoutResponseSchema = z.object({
   status: z.literal("pending_payment"),
 });
 
+export const pixCheckoutRequestSchema = checkoutRequestSchema
+  .extend({
+    operationId: z.string().uuid(),
+  })
+  .strict();
+
+const pixPaymentDetailsShape = {
+  orderReference: z.string().min(8).max(40),
+  amountInCents: moneyInCentsSchema,
+  currency: z.literal("BRL"),
+  pixCode: z.string().min(40).max(600),
+  qrCodeDataUrl: z
+    .string()
+    .startsWith("data:image/png;base64,")
+    .max(250_000),
+  whatsappUrl: z.string().url(),
+  paymentStatus: paymentStatusSchema,
+  status: z.enum(["pending_confirmation", "approved", "rejected"]),
+} as const;
+
+export const pixCheckoutResponseSchema = z
+  .object({
+    ...pixPaymentDetailsShape,
+    checkoutAccessToken: z.string().min(32).max(128),
+    reused: z.boolean(),
+  })
+  .strict();
+
+export const pixPaymentDetailsSchema = z
+  .object(pixPaymentDetailsShape)
+  .strict();
+
+export const adminPixPaymentDecisionSchema = z
+  .object({
+    status: z.enum(["approved", "rejected"]),
+  })
+  .strict();
+
 export const whatsappRequestSchema = z
   .object({
     items: z.array(cartItemInputSchema).min(1).max(50),
@@ -535,6 +784,7 @@ export const orderSummarySchema = z.object({
   customerPhone: z.string().min(8).max(24).nullable(),
   status: orderStatusSchema.or(whatsappStatusSchema),
   salesChannel: z.enum(["online", "whatsapp"]),
+  paymentMethod: paymentMethodSchema.nullable().default(null),
   paymentStatus: paymentStatusSchema.nullable(),
   shippingMode: shippingModeSchema.nullable(),
   shippingStatus: shippingStatusSchema.nullable(),
@@ -550,6 +800,8 @@ export const orderSummarySchema = z.object({
   pickupInstructions: z.string().max(500).nullable(),
   shippingContactedAt: z.string().nullable(),
   shippingArrangedAt: z.string().nullable(),
+  revenueConfirmedAt: z.string().nullable().default(null),
+  archivedAt: z.string().nullable().default(null),
   createdAt: z.string(),
   updatedAt: z.string(),
   items: z.array(
@@ -624,6 +876,37 @@ const manifestoItemSchema = z
     enabled: z.boolean(),
     alignment: z.enum(["start", "center"]),
     emphasis: z.enum(["subtle", "standard", "strong"]),
+    fontFamily: storefrontTextFontSchema.default("inherit"),
+    fontSize: z.number().int().min(0).max(96).default(0),
+    spacingAfter: z.number().int().min(12).max(120).default(40),
+  })
+  .strict();
+
+export const adminWhatsappRevenueUpdateSchema = z
+  .object({
+    confirmed: z.boolean(),
+  })
+  .strict();
+
+export const adminOrderArchiveInputSchema = z
+  .object({
+    references: z
+      .array(z.string().min(8).max(40))
+      .min(1)
+      .max(500)
+      .transform((references) => [...new Set(references)]),
+    archived: z.boolean(),
+  })
+  .strict();
+
+const reviewItemSchema = z
+  .object({
+    id: idSchema,
+    author: z.string().trim().max(80),
+    context: z.string().trim().max(100),
+    content: z.string().trim().max(360),
+    rating: z.number().int().min(1).max(5),
+    enabled: z.boolean(),
   })
   .strict();
 
@@ -702,6 +985,7 @@ export const storefrontSettingsSchema = z
       .default(defaultManifestoItems.map((item) => ({ ...item }))),
     manifestoMaxWidth: z.number().int().min(560).max(1120).default(880),
     manifestoDivider: z.enum(["none", "line", "accent"]).default("line"),
+    manifestoDividerMobileEnabled: z.boolean().default(false),
     editorialCatalogLabel: z
       .string()
       .min(2)
@@ -727,6 +1011,41 @@ export const storefrontSettingsSchema = z
     featuredLinkLabel: z.string().min(2).max(80).default("Ver todos"),
     featuredAddButtonLabel: z.string().min(2).max(40).default("Adicionar"),
     featuredAddedButtonLabel: z.string().min(2).max(40).default("Adicionado"),
+    catalogEyebrow: z.string().trim().max(80).default("Loja"),
+    catalogTitle: z.string().trim().min(2).max(100).default("Catalogo"),
+    catalogDescription: z
+      .string()
+      .trim()
+      .max(220)
+      .default(
+        "Explore os produtos, compare opcoes e encontre a escolha certa para voce.",
+      ),
+    catalogDensity: z.enum(["comfortable", "compact"]).default("comfortable"),
+    catalogBackgroundColor: colorSchema.default("#f9f6f0"),
+    catalogSurfaceColor: colorSchema.default("#ffffff"),
+    catalogTextColor: colorSchema.default("#090907"),
+    catalogSecondaryTextColor: colorSchema.default("#5c584f"),
+    catalogAccentColor: colorSchema.default("#c9a76d"),
+    catalogBorderColor: colorSchema.default("#d8d1c5"),
+    catalogButtonBackgroundColor: colorSchema.default("#090907"),
+    catalogButtonTextColor: colorSchema.default("#ffffff"),
+    catalogCardStyle: z
+      .enum(["minimal", "boutique", "editorial"])
+      .default("boutique"),
+    catalogImageFit: z.enum(["contain", "cover"]).default("contain"),
+    catalogImageRatio: z
+      .enum(["square", "portrait", "landscape"])
+      .default("landscape"),
+    catalogButtonStyle: z
+      .enum(["solid", "outline", "minimal"])
+      .default("solid"),
+    catalogCardRadius: z.number().int().min(0).max(16).default(8),
+    catalogColumnsDesktop: z.number().int().min(3).max(4).default(4),
+    catalogColumnsTablet: z.number().int().min(2).max(3).default(2),
+    catalogColumnsMobile: z.number().int().min(1).max(2).default(2),
+    catalogTextStyles: catalogTextStylesSchema.default(
+      defaultCatalogTextStyles,
+    ),
     homeLayout: z
       .enum(["editorial", "compact", "showcase"])
       .default("editorial"),
@@ -759,6 +1078,17 @@ export const storefrontSettingsSchema = z
     homeTextStyles: homeTextStylesSchema.default(defaultStorefrontTextStyles),
     storefrontFont: typographyPresetSchema.default("signature"),
     adminFont: typographyPresetSchema.default("signature"),
+    reviewsEnabled: z.boolean().default(false),
+    reviewsEyebrow: z.string().trim().max(80).default("Avaliacoes"),
+    reviewsTitle: z
+      .string()
+      .trim()
+      .max(100)
+      .default("Experiencias compartilhadas"),
+    reviewsItems: z.array(reviewItemSchema).max(12).default([]),
+    reviewsSpeedSeconds: z.number().int().min(18).max(80).default(38),
+    reviewsBackgroundColor: colorSchema.default("#faf8f4"),
+    reviewsCardColor: colorSchema.default("#ffffff"),
     footerSlogan: z
       .string()
       .trim()
@@ -809,6 +1139,23 @@ export const storefrontSettingsSchema = z
     ),
     primaryColor: colorSchema,
     accentColor: colorSchema,
+    headerBackgroundColor: colorSchema.default("#ffffff"),
+    headerTextColor: colorSchema.default("#090907"),
+    headerAccentColor: colorSchema.default("#c9a76d"),
+    headerButtonMode: z.enum(["automatic", "custom"]).default("automatic"),
+    headerButtonBackgroundColor: colorSchema.default("#090907"),
+    headerButtonTextColor: colorSchema.default("#ffffff"),
+    headerFontFamily: storefrontTextFontSchema.default("modern"),
+    headerNavFontSize: z.number().int().min(12).max(20).default(15),
+    headerButtonFontSize: z.number().int().min(12).max(20).default(15),
+    headerHeight: z.number().int().min(56).max(96).default(72),
+    headerLogoWidth: z.number().int().min(140).max(360).default(300),
+    headerButtonStyle: z.enum(["solid", "outline", "minimal"]).default("solid"),
+    headerButtonRadius: z.number().int().min(0).max(24).default(6),
+    headerBorderColor: colorSchema.default("#d8d1c5"),
+    headerBorderWidth: z.number().int().min(0).max(3).default(1),
+    headerShadow: z.enum(["none", "subtle", "pronounced"]).default("subtle"),
+    headerSticky: z.boolean().default(true),
     footerColor: colorSchema.default("#c9a76d"),
     backgroundColor: colorSchema,
     homeSurfaceColor: colorSchema.default("#faf8f4"),
@@ -829,10 +1176,21 @@ export type CartItemInput = z.infer<typeof cartItemInputSchema>;
 export type PricedCart = z.infer<typeof pricedCartSchema>;
 export type CheckoutRequest = z.infer<typeof checkoutRequestSchema>;
 export type CheckoutResponse = z.infer<typeof checkoutResponseSchema>;
+export type PixCheckoutRequest = z.infer<typeof pixCheckoutRequestSchema>;
+export type PixCheckoutResponse = z.infer<typeof pixCheckoutResponseSchema>;
+export type PixPaymentDetails = z.infer<typeof pixPaymentDetailsSchema>;
+export type PixSettings = z.infer<typeof pixSettingsSchema>;
+export type PaymentMethodsResponse = z.infer<
+  typeof paymentMethodsResponseSchema
+>;
+export type AdminPixPaymentDecision = z.infer<
+  typeof adminPixPaymentDecisionSchema
+>;
 export type CheckoutStatusResponse = z.infer<
   typeof checkoutStatusResponseSchema
 >;
 export type PaymentStatus = z.infer<typeof paymentStatusSchema>;
+export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
 export type WhatsappRequest = z.infer<typeof whatsappRequestSchema>;
 export type WhatsappResponse = z.infer<typeof whatsappResponseSchema>;
 export type AdminProductInput = z.infer<typeof adminProductInputSchema>;
@@ -840,11 +1198,18 @@ export type AdminCategoryInput = z.infer<typeof adminCategoryInputSchema>;
 export type AdminProductRow = z.infer<typeof adminProductRowSchema>;
 export type OrderSummary = z.infer<typeof orderSummarySchema>;
 export type AdminOrderUpdate = z.infer<typeof adminOrderUpdateSchema>;
+export type AdminWhatsappRevenueUpdate = z.infer<
+  typeof adminWhatsappRevenueUpdateSchema
+>;
+export type AdminOrderArchiveInput = z.infer<
+  typeof adminOrderArchiveInputSchema
+>;
 export type StorefrontSettings = z.infer<typeof storefrontSettingsSchema>;
 export type StorefrontTextStyle = z.infer<typeof storefrontTextStyleSchema>;
 export type StorefrontTextFont = z.infer<typeof storefrontTextFontSchema>;
 export type HomeMotionPreset = z.infer<typeof homeMotionPresetSchema>;
 export type ManifestoItem = z.infer<typeof manifestoItemSchema>;
+export type ReviewItem = z.infer<typeof reviewItemSchema>;
 export type HomeSection = z.infer<typeof homeSectionSchema>;
 export type FooterLink = z.infer<typeof footerLinkSchema>;
 export type TypographyPreset = z.infer<typeof typographyPresetSchema>;

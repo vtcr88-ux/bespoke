@@ -91,9 +91,17 @@ export function corsOrigins(env: AppEnv) {
     .filter(Boolean);
 }
 
-export function trustedHosts(env: AppEnv) {
-  return (env.TRUSTED_HOSTS ?? "")
+export function trustedHosts(
+  env: Pick<AppEnv, "NODE_ENV" | "PUBLIC_API_URL" | "TRUSTED_HOSTS">,
+) {
+  const configuredHosts = (env.TRUSTED_HOSTS ?? "")
     .split(",")
     .map((host) => host.trim().toLowerCase())
     .filter(Boolean);
+  const publicApiHost = new URL(env.PUBLIC_API_URL).hostname.toLowerCase();
+  const localHosts =
+    env.NODE_ENV === "production"
+      ? []
+      : ["localhost", "127.0.0.1", "::1", "[::1]"];
+  return [...new Set([...configuredHosts, publicApiHost, ...localHosts])];
 }

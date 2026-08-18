@@ -4,6 +4,7 @@ server {
   server_name __API_DOMAIN__;
 
   include /etc/nginx/snippets/catalog-security-headers.conf;
+  add_header X-Frame-Options "DENY" always;
 
   location /webhooks/ {
     limit_req zone=webhooks burst=20 nodelay;

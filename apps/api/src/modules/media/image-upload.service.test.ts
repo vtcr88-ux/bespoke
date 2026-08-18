@@ -127,4 +127,47 @@ describe("ImageUploadService", () => {
       service.save(jpeg(640, 480), "image/jpeg"),
     ).rejects.toMatchObject({ code: "IMAGE_DECODE_FAILED" });
   });
+
+  it("creates a compact logo variant without changing the original upload", async () => {
+    const uploadsRoot = await mkdtemp(join(tmpdir(), "bespoke-logo-"));
+    const mark = await sharp({
+      create: {
+        width: 100,
+        height: 40,
+        channels: 4,
+        background: "#c9a76d",
+      },
+    })
+      .png()
+      .toBuffer();
+    const source = await sharp({
+      create: {
+        width: 300,
+        height: 200,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      },
+    })
+      .composite([{ input: mark, left: 100, top: 80 }])
+      .png()
+      .toBuffer();
+
+    try {
+      const service = new ImageUploadService(
+        uploadsRoot,
+        "http://localhost:3333",
+      );
+      const uploaded = await service.save(source, "image/png");
+      const fileName = basename(new URL(uploaded.url).pathname);
+      const variant = await service.logoVariant(fileName);
+      const metadata = await sharp(variant.data).metadata();
+
+      expect(variant.contentType).toBe("image/webp");
+      expect(metadata.width).toBe(100);
+      expect(metadata.height).toBe(40);
+      expect(uploaded).toMatchObject({ width: 300, height: 200 });
+    } finally {
+      await rm(uploadsRoot, { recursive: true, force: true });
+    }
+  });
 });

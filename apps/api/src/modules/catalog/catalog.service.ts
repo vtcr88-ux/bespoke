@@ -4,9 +4,13 @@ import type {
   Product,
 } from "@bespoke/contracts";
 import type { CommerceStoreAdapter } from "../store/commerce.store.js";
+import { publicProductMedia } from "../media/public-media-url.js";
 
 export class CatalogService {
-  constructor(private readonly store: CommerceStoreAdapter) {}
+  constructor(
+    private readonly store: CommerceStoreAdapter,
+    private readonly publicApiUrl: string,
+  ) {}
 
   async list(query: CatalogQuery): Promise<CatalogResponse> {
     const search = query.search?.toLocaleLowerCase("pt-BR");
@@ -56,7 +60,9 @@ export class CatalogService {
         )
       : 0;
     const safeOffset = Number.isFinite(offset) && offset >= 0 ? offset : 0;
-    const items = filtered.slice(safeOffset, safeOffset + query.limit);
+    const items = filtered
+      .slice(safeOffset, safeOffset + query.limit)
+      .map((product) => publicProductMedia(product, this.publicApiUrl));
     const nextOffset = safeOffset + query.limit;
 
     return {
@@ -69,10 +75,12 @@ export class CatalogService {
   }
 
   async findBySlug(slug: string): Promise<Product | null> {
-    return this.store.findProductBySlug(slug);
+    const product = await this.store.findProductBySlug(slug);
+    return product ? publicProductMedia(product, this.publicApiUrl) : null;
   }
 
   async findById(id: string): Promise<Product | null> {
-    return this.store.findProductById(id);
+    const product = await this.store.findProductById(id);
+    return product ? publicProductMedia(product, this.publicApiUrl) : null;
   }
 }

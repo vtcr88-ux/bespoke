@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { maxCatalogPageSize } from "@bespoke/contracts";
-import { listFeaturedProducts } from "./api";
+import {
+  listFeaturedProducts,
+  listProducts,
+  resolveApiBaseUrl,
+} from "./api";
 
 function catalogPage(items: { id: string }[], nextCursor: string | null) {
   return new Response(JSON.stringify({ items, nextCursor }), {
@@ -45,5 +49,36 @@ describe("listFeaturedProducts", () => {
 
     const secondRequest = new URL(String(fetchMock.mock.calls[1]?.[0]));
     expect(secondRequest.searchParams.get("cursor")).toBe("cursor-seguinte");
+  });
+
+  it("remove parametros internos antes de consultar o catalogo", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(catalogPage([], null));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await listProducts(
+      new URLSearchParams({
+        category: "encapsulados",
+        search: "vitamina",
+        "storefront-preview": "admin",
+      }),
+    );
+
+    const request = new URL(String(fetchMock.mock.calls[0]?.[0]));
+    expect(request.searchParams.get("category")).toBe("encapsulados");
+    expect(request.searchParams.get("search")).toBe("vitamina");
+    expect(request.searchParams.get("limit")).toBe("8");
+    expect(request.searchParams.has("storefront-preview")).toBe(false);
+  });
+});
+
+describe("resolveApiBaseUrl", () => {
+  it("usa a API da mesma origem em builds publicados sem configuracao", () => {
+    expect(resolveApiBaseUrl(undefined)).toBe("/api");
+  });
+
+  it("prioriza e normaliza a URL configurada", () => {
+    expect(resolveApiBaseUrl("  https://loja.example/api/  ")).toBe(
+      "https://loja.example/api",
+    );
   });
 });

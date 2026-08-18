@@ -22,7 +22,7 @@ export class WhatsappService {
     const settings = await this.store.storefront();
     const message = [
       `Ola, ${settings.brandName}.`,
-      `Gostaria de continuar uma compra assistida. Referencia: ${requestReference}.`,
+      "Gostaria de continuar uma compra assistida.",
       "Itens:",
       productLines(priced.lines),
       `Subtotal dos produtos: ${formatBrl(priced.subtotalInCents)}.`,
@@ -50,6 +50,17 @@ export class WhatsappService {
       `Total pago: ${formatBrl(order.totalInCents)}.`,
       "Frete: a combinar pelo WhatsApp.",
       settings.postPaymentWhatsappMessage,
+    ].join("\n");
+    return this.url(message, settings.whatsappNumber).toString();
+  }
+
+  async pixProofUrl(order: StoredOrder) {
+    const settings = await this.store.storefront();
+    const message = [
+      `Ola, ${settings.brandName}.`,
+      `Realizei o pagamento via Pix do pedido ${order.publicReference}.`,
+      `Valor: ${formatBrl(order.totalInCents)}.`,
+      "Vou enviar o comprovante nesta conversa para confirmacao da loja.",
     ].join("\n");
     return this.url(message, settings.whatsappNumber).toString();
   }

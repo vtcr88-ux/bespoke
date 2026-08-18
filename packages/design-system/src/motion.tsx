@@ -26,8 +26,8 @@ export const motionTokens = {
   },
   distance: {
     page: 8,
-    reveal: 24,
-    editorial: 32,
+    reveal: 20,
+    editorial: 24,
     drawer: 12,
     card: 4,
   },
@@ -68,7 +68,7 @@ export function getHomeMotionVariants({
         : preset === "subtle"
           ? 0
           : preset === "editorial"
-            ? 1.12
+            ? 0.9
             : 1;
   const distanceScale = intensityDistanceScale * presetDistanceScale;
   const durationScale =
@@ -87,7 +87,7 @@ export function getHomeMotionVariants({
         : preset === "structured"
           ? motionTokens.stagger.tight
           : preset === "soft"
-            ? 0.06
+            ? 0.07
             : preset === "subtle"
               ? 0.04
               : 0.1;
@@ -115,7 +115,7 @@ export function getHomeMotionVariants({
         visible(entrance, preset === "cascade" ? staggerDelay(order) : 0),
     } satisfies Variants,
     navigationItem: {
-      hidden: hidden(12),
+      hidden: hidden(10),
       visible: (order = 0) => ({
         opacity: 1,
         y: 0,
@@ -141,7 +141,7 @@ export function getHomeMotionVariants({
       },
     } satisfies Variants,
     title: {
-      hidden: hidden(16),
+      hidden: hidden(14),
       visible: visible(duration),
     } satisfies Variants,
     action: {
@@ -158,7 +158,7 @@ export function getHomeMotionVariants({
       },
     } satisfies Variants,
     card: {
-      hidden: hidden(26),
+      hidden: hidden(20),
       visible: (order = 0) => ({
         opacity: 1,
         y: 0,

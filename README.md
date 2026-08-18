@@ -110,9 +110,16 @@ npm run dev
 ## Fluxos de compra
 
 - `Comprar pelo WhatsApp`: cria uma referencia publica e uma mensagem com itens, quantidades e valores gerados pelo servidor.
-- `Comprar online`: cobra somente produtos e descontos no Mercado Pago. O frete permanece `NULL` e aparece como "A combinar pelo WhatsApp".
+- `Comprar online`: oferece Pix manual, quando habilitado, e cartao pelo Mercado Pago. Ambos cobram somente produtos e descontos; o frete permanece `NULL` e aparece como "A combinar pelo WhatsApp".
+- No Pix manual, a API gera BR Code e QR Code com o valor recalculado. O administrador confirma o recebimento no painel depois de conferir o comprovante.
 - O webhook assinado consulta o pagamento na API do Mercado Pago e e a unica fonte de verdade. A pagina de retorno consulta o estado registrado pela API antes de liberar o atendimento.
 - O token opaco de consulta do pedido permanece no `sessionStorage` da aba e segue para a API pelo cabecalho `Authorization`; ele nao e incluido nas URLs do Mercado Pago, do WhatsApp ou no historico do navegador.
+
+Para testar localmente as notificacoes assinadas do Mercado Pago, use o tunel
+restrito descrito em
+[docs/LOCAL_MERCADO_PAGO_WEBHOOK.md](docs/LOCAL_MERCADO_PAGO_WEBHOOK.md).
+O fluxo, a configuracao por loja e os limites do Pix V1 estao em
+[docs/PIX_MANUAL.md](docs/PIX_MANUAL.md).
 
 ## Producao
 

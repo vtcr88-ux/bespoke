@@ -2,6 +2,7 @@ import { Fragment, memo, useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion, type Variants } from "motion/react";
 import { motionTokens } from "@bespoke/design-system";
 import heroProductBackground from "../assets/hero-product-background.png";
+import { useStorefrontPreviewMedia } from "../lib/storefront-preview-media";
 
 type HeroProductDropSceneProps = {
   image: string;
@@ -244,6 +245,8 @@ function ProductShadowImage({
 export const HeroProductDropScene = memo(function HeroProductDropScene({
   image,
 }: HeroProductDropSceneProps) {
+  const previewMedia = useStorefrontPreviewMedia(image);
+  const sourceImage = previewMedia.url;
   const reducedMotion = useReducedMotion();
   const playEntrance = useRef(!heroProductEntranceConsumed);
   const dropDistance = useRef(initialDropDistance());
@@ -276,9 +279,21 @@ export const HeroProductDropScene = memo(function HeroProductDropScene({
   }, [reducedMotion]);
 
   useEffect(() => {
+    if (previewMedia.loading) {
+      setMediaReady(false);
+      setMediaFailed(false);
+      return;
+    }
+    if (previewMedia.error || !sourceImage) {
+      setMediaFailed(true);
+      setMediaReady(true);
+      setSettled(true);
+      return;
+    }
+
     const removePreloads = [
       addImagePreload(heroProductBackground),
-      addImagePreload(image),
+      addImagePreload(sourceImage),
     ];
     const background = backgroundRef.current;
     const source = sourceRef.current;
@@ -304,7 +319,7 @@ export const HeroProductDropScene = memo(function HeroProductDropScene({
       active = false;
       removePreloads.forEach((remove) => remove());
     };
-  }, [image, shouldAnimate]);
+  }, [previewMedia.error, previewMedia.loading, shouldAnimate, sourceImage]);
 
   return (
     <div
@@ -320,16 +335,18 @@ export const HeroProductDropScene = memo(function HeroProductDropScene({
         ref={backgroundRef}
         src={heroProductBackground}
       />
-      <img
-        alt=""
-        className="hero__product-source-preload"
-        decoding="async"
-        loading="eager"
-        ref={sourceRef}
-        src={image}
-      />
+      {sourceImage ? (
+        <img
+          alt=""
+          className="hero__product-source-preload"
+          decoding="async"
+          loading="eager"
+          ref={sourceRef}
+          src={sourceImage}
+        />
+      ) : null}
 
-      {!mediaFailed ? (
+      {!mediaFailed && sourceImage ? (
         <div className="hero__product-frame">
           <div className="hero__product-motion">
             {productDropConfigs.map((product) => {
@@ -360,7 +377,7 @@ export const HeroProductDropScene = memo(function HeroProductDropScene({
                     >
                       <ProductShadowImage
                         bounds={product.shadowBounds}
-                        image={image}
+                        image={sourceImage}
                       />
                     </motion.span>
                   </span>
@@ -395,7 +412,7 @@ export const HeroProductDropScene = memo(function HeroProductDropScene({
                     <ProductImage
                       bounds={product.bounds}
                       id={product.id}
-                      image={image}
+                      image={sourceImage}
                     />
                   </motion.div>
                 </Fragment>

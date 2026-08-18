@@ -6,8 +6,13 @@ server {
   index index.html;
 
   include /etc/nginx/snippets/catalog-security-headers.conf;
+  add_header Content-Security-Policy "frame-ancestors 'self' https://__ADMIN_DOMAIN__" always;
 
-  location ~ ^/api/admin/ {
+  location ~ ^/api/admin(?:/|$) {
+    return 404;
+  }
+
+  location ~ ^/(?:admin(?:/|$)|painel-[A-Za-z0-9_-]{24,}(?:/|$)) {
     return 404;
   }
 
@@ -32,6 +37,7 @@ server {
 
   location = /index.html {
     add_header Cache-Control "no-store";
+    add_header Content-Security-Policy "frame-ancestors 'self' https://__ADMIN_DOMAIN__" always;
   }
 
   location / {

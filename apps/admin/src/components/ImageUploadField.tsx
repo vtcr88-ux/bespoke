@@ -8,7 +8,7 @@ import {
   X,
 } from "lucide-react";
 import type { ImageUploadResponse } from "@bespoke/contracts";
-import { uploadImage } from "../lib/api";
+import { adminMediaUrl, uploadImage } from "../lib/api";
 import {
   formatImageSize,
   getImageContentType,
@@ -52,11 +52,23 @@ export function ImageUploadField({
     null,
   );
   const [previewFailed, setPreviewFailed] = useState(false);
+  const [previewRetry, setPreviewRetry] = useState(0);
   const visibleError = localError || error;
+  const previewUrl = adminMediaUrl(value);
 
   useEffect(() => {
     setPreviewFailed(false);
-  }, [value]);
+    setPreviewRetry(0);
+  }, [previewUrl]);
+
+  useEffect(() => {
+    if (!previewFailed || !previewUrl || previewRetry >= 1) return;
+    const retry = window.setTimeout(() => {
+      setPreviewFailed(false);
+      setPreviewRetry((current) => current + 1);
+    }, 500);
+    return () => window.clearTimeout(retry);
+  }, [previewFailed, previewRetry, previewUrl]);
 
   async function processFile(file: File | undefined) {
     if (!file || disabled || uploading) return;
@@ -118,8 +130,13 @@ export function ImageUploadField({
         aria-busy={uploading}
       >
         <div className="image-upload__preview">
-          {value && !previewFailed ? (
-            <img src={value} alt={alt} onError={() => setPreviewFailed(true)} />
+          {previewUrl && !previewFailed ? (
+            <img
+              key={`${previewUrl}-${previewRetry}`}
+              src={previewUrl}
+              alt={alt}
+              onError={() => setPreviewFailed(true)}
+            />
           ) : (
             <ImageIcon size={32} aria-hidden="true" />
           )}

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import sharp from "sharp";
 import {
@@ -20,6 +20,11 @@ const maximumImageDimension = 12_000;
 const maximumImagePixels = 40_000_000;
 
 export class ImageUploadService {
+  private readonly logoVariantCache = new Map<
+    string,
+    Promise<{ data: Buffer; contentType: "image/webp" }>
+  >();
+
   constructor(
     private readonly uploadsRoot: string,
     private readonly publicApiUrl: string,
@@ -112,6 +117,60 @@ export class ImageUploadService {
         500,
         "IMAGE_DELETE_FAILED",
         "Nao foi possivel remover a imagem com seguranca.",
+      );
+    }
+  }
+
+  async logoVariant(fileName: string) {
+    if (!/^[0-9a-f-]{36}\.(?:png|jpg|webp)$/i.test(fileName)) {
+      throw new ApiError(404, "IMAGE_NOT_FOUND", "Imagem nao encontrada.");
+    }
+
+    const cached = this.logoVariantCache.get(fileName);
+    if (cached) return cached;
+
+    const pending = this.createLogoVariant(fileName);
+    this.logoVariantCache.set(fileName, pending);
+    try {
+      return await pending;
+    } catch (error) {
+      this.logoVariantCache.delete(fileName);
+      throw error;
+    }
+  }
+
+  private async createLogoVariant(fileName: string) {
+    let source: Buffer;
+    try {
+      source = await readFile(resolve(this.uploadsRoot, "images", fileName));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        throw new ApiError(404, "IMAGE_NOT_FOUND", "Imagem nao encontrada.");
+      }
+      throw error;
+    }
+
+    try {
+      const data = await sharp(source, {
+        failOn: "error",
+        limitInputPixels: maximumImagePixels,
+      })
+        .rotate()
+        .trim({ threshold: 8 })
+        .resize({
+          width: 1200,
+          height: 420,
+          fit: "inside",
+          withoutEnlargement: true,
+        })
+        .webp({ quality: 90, alphaQuality: 100 })
+        .toBuffer();
+      return { data, contentType: "image/webp" as const };
+    } catch {
+      throw new ApiError(
+        415,
+        "IMAGE_DECODE_FAILED",
+        "A imagem nao pode ser preparada para exibicao.",
       );
     }
   }

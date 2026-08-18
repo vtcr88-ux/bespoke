@@ -24,6 +24,13 @@ O produto tem sucesso quando o cliente compreende as duas formas de compra, pres
 
 Uma boutique digital que combina curadoria premium, compra segura e atendimento humano.
 
+## Pagamento Pix
+
+O checkout online oferece Pix manual, quando habilitado pela loja, e Mercado
+Pago. O Pix exibe QR Code e copia e cola gerados pela API com o valor oficial do
+carrinho, preserva a consulta ao recarregar e orienta o envio do comprovante pelo
+WhatsApp. A confirmacao continua manual no painel.
+
 A identidade visual publicada pelo painel deve permanecer legivel no cabecalho e no rodape. Logos horizontais recebem espaco proporcional, e o nome em texto no rodape e opcional quando ja fizer parte da propria logo.
 
 ## Conversion & proof
@@ -71,6 +78,18 @@ A voz deve ser segura, clara e gentil. Evitar pressao promocional, superlativos 
 5. Conquistar confianca antes da conversao. Exibir informacoes consistentes sobre produto, preco, frete, pagamento e atendimento antes de pedir uma decisao.
 
 A Home deve exibir todos os produtos ativos marcados como destaque no painel. A API permanece paginada para proteger a operacao, mas a vitrine percorre todas as paginas sem aplicar um limite visual fixo aos destaques.
+
+Os cards exibem ate 200 caracteres da descricao e crescem conforme o conteudo. Quebras de linha iniciadas por marcadores simples devem permanecer legiveis como topicos curtos sem comprometer a grade responsiva.
+
+A Home pode publicar uma secao de avaliacoes reais entre o conteudo principal e o rodape. O carrossel deve ser continuo, pausavel, legivel e substituido por navegacao horizontal estatica quando o visitante preferir movimento reduzido. Sem relatos reais habilitados, a secao nao deve ser renderizada.
+
+O catalogo usa titulo, etiqueta, descricao e densidade definidos pela Vitrine do Admin. Sua composicao permanece generica para diferentes nichos, com filtros previsiveis, duas colunas de produtos no mobile e hierarquia responsiva em tablet e desktop.
+
+Cabecalho, indicador de navegacao e botoes recebem a paleta publicada pelo Admin. A cor manual dos textos deve ser renderizada exatamente como foi salva. A adaptacao automatica de contraste fica restrita aos botoes configurados no modo automatico; combinacoes manuais exigem revisao de legibilidade no painel.
+
+Cabecalho e Catalogo usam tokens proprios de paleta, tipografia, dimensoes e acabamento. Os tokens gerais da Home funcionam somente como fallback; uma configuracao explicita de um componente deve prevalecer dentro daquele componente e nao pode vazar para os demais.
+
+O divisor visual do manifesto pode ser ocultado apenas em celulares. Quando desativado, o elemento nao deve ser renderizado, mas o respiro inferior do manifesto deve ser preservado para que a borda da secao seguinte nao encoste no texto. Quando visivel, o primeiro e o ultimo manifesto mantem respiro equivalente em relacao a Hero e ao divisor, acompanhando o espacamento global escolhido para a Home.
 
 ## Accessibility & Inclusion
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadEnv } from "./env.js";
+import { loadEnv, trustedHosts } from "./env.js";
 
 const passwordHash = [
   "scrypt",
@@ -62,5 +62,18 @@ describe("production environment", () => {
         UPLOADS_DIR: "/var/lib/catalog-platform/store-test/uploads",
       }),
     ).toThrow("COMMERCE_STORAGE=mysql");
+  });
+});
+
+describe("trustedHosts", () => {
+  it("inclui automaticamente o host da API publica sem duplicar entradas", () => {
+    expect(
+      trustedHosts({
+        NODE_ENV: "production",
+        PUBLIC_API_URL: "https://tunnel-test.ngrok-free.dev",
+        TRUSTED_HOSTS:
+          "admin.store.test,tunnel-test.ngrok-free.dev,ADMIN.STORE.TEST",
+      }),
+    ).toEqual(["admin.store.test", "tunnel-test.ngrok-free.dev"]);
   });
 });
