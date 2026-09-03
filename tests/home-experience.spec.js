@@ -338,6 +338,8 @@ test.describe("Home responsiva e acessivel", () => {
         const navigation = rect(".home-editorial-nav");
         const heading = rect(".section-heading--featured");
         const grid = rect(".product-grid--preview");
+        const categories = rect(".home-categories");
+        const commerce = rect(".home-commerce");
         const reviews = rect(".reviews-section");
         const footer = rect(".site-footer");
 
@@ -352,6 +354,18 @@ test.describe("Home responsiva e acessivel", () => {
         )
           return null;
 
+        const nextSectionTop = [categories, commerce, reviews, footer]
+          .filter(
+            (candidate) =>
+              candidate?.width &&
+              candidate.height &&
+              candidate.top >= grid.bottom - 1,
+          )
+          .reduce(
+            (nearest, candidate) => Math.min(nearest, candidate.top),
+            Number.POSITIVE_INFINITY,
+          );
+
         return {
           hasReviews: Boolean(reviews?.width && reviews.height),
           heroToStatement: statement.top - hero.bottom,
@@ -361,7 +375,7 @@ test.describe("Home responsiva e acessivel", () => {
           navigationToHeading:
             navigation.width > 0 ? heading.top - navigation.bottom : null,
           headingToCards: grid.top - heading.bottom,
-          cardsToNext: (reviews?.top ?? footer.top) - grid.bottom,
+          cardsToNext: nextSectionTop - grid.bottom,
         };
       });
 

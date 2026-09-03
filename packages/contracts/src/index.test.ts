@@ -18,6 +18,16 @@ import {
 } from "./index.js";
 
 describe("contracts", () => {
+  it("accepts independent e-commerce cards for Home and Catalog", () => {
+    const settings = storefrontSettingsSchema.parse({
+      productCardStyle: "ecommerce",
+      catalogCardStyle: "ecommerce",
+    });
+
+    expect(settings.productCardStyle).toBe("ecommerce");
+    expect(settings.catalogCardStyle).toBe("ecommerce");
+  });
+
   it("preserves card descriptions exactly up to the 200 character limit", () => {
     const topics = formatProductCardDescription(
       "° Inibidor de apetite\n- Acelera o metabolismo\n* Rico em fibras e minerais",
@@ -496,6 +506,11 @@ describe("contracts", () => {
     expect(settings.homeTransitionPreset).toBe("editorial");
     expect(settings.featuredAddButtonLabel).toBe("Adicionar");
     expect(settings.featuredAddedButtonLabel).toBe("Adicionado");
+    expect(settings.categoryTitle).toBe("Compre por categoria");
+    expect(settings.commerceTitle).toBe(
+      "Atendimento proximo ou pagamento online",
+    );
+    expect(settings.homeProductColumnsMobile).toBe(2);
     expect(settings.footerColor).toBe("#c9a76d");
   });
 
@@ -575,6 +590,8 @@ describe("contracts", () => {
         homeSections: [
           { id: "manifesto", enabled: true },
           { id: "manifesto", enabled: false },
+          { id: "navigation", enabled: true },
+          { id: "categories", enabled: true },
           { id: "featured", enabled: true },
         ],
       }).success,
@@ -659,5 +676,31 @@ describe("contracts", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("validates isolated control-plane instance metadata", async () => {
+    const { controlInstanceInputSchema } = await import("./index.js");
+    const instance = controlInstanceInputSchema.parse({
+      slug: "loja-futura",
+      name: "Loja Futura",
+      publicDomain: "LOJA.EXAMPLE.COM",
+      adminDomain: "admin.loja.example.com",
+      apiDomain: "api.loja.example.com",
+      ownerEmail: "DONO@EXAMPLE.COM",
+    });
+
+    expect(instance).toMatchObject({
+      slug: "loja-futura",
+      publicDomain: "loja.example.com",
+      ownerEmail: "dono@example.com",
+      whatsappPhone: "",
+      notes: "",
+    });
+    expect(
+      controlInstanceInputSchema.safeParse({
+        ...instance,
+        apiDomain: instance.publicDomain,
+      }).success,
+    ).toBe(false);
   });
 });

@@ -1,135 +1,126 @@
 # Bespoke E-Commerce
 
-Plataforma premium single-tenant para vitrine publica, compra assistida por WhatsApp, Checkout Pro do Mercado Pago e portal administrativo protegido.
+Projeto de portifolio full-stack que simula uma plataforma de e-commerce
+white-label. A aplicacao conecta uma vitrine publica, um painel administrativo
+e uma API de negocio em uma arquitetura preparada para varias lojas.
 
-O modelo white-label recomendado e multi-instancia isolado: o mesmo
-repositorio/build Bespoke atende varias lojas no mesmo VPS, mas cada loja roda
-com `.env`, porta de API, banco MySQL, uploads, Mercado Pago, dominios e admin
-proprios. A identidade visual do Admin continua Bespoke; a identidade da loja
-fica somente na pagina publica e nas configuracoes editaveis da vitrine.
+Este projeto foi desenvolvido para demonstrar competencias praticas relevantes
+para uma oportunidade de estagio ou primeiro emprego em tecnologia: organizacao
+de monorepo, desenvolvimento de interfaces responsivas, integracao com API,
+autenticacao, persistencia de dados, pagamentos, testes e preocupacoes de
+seguranca.
 
-## Estrutura
+## O que o projeto demonstra
 
-- `apps/web`: loja publica React + Vite.
-- `apps/admin`: portal administrativo React + Vite.
-- `apps/api`: API Node.js + Express + TypeScript.
-- `packages/contracts`: contratos Zod compartilhados.
-- `packages/design-system`: tokens e componentes compartilhados.
-- `database/migrations`: schema MySQL versionado.
-- `database/seeds`: dados demonstrativos sem informacoes reais.
-- `instances`: templates isolados por loja, sem segredos reais.
+- Vitrine responsiva com catalogo, busca, carrinho e checkout.
+- Painel administrativo protegido para produtos, pedidos, relatorios e
+  configuracoes da loja.
+- Preview da vitrine e personalizacao de marca, cores, tipografia, imagens e
+  conteudo.
+- Compra assistida pelo WhatsApp e pagamento online com Mercado Pago e Pix.
+- Arquitetura white-label com isolamento entre lojas e configuracoes por
+  instancia.
+- Contratos, autenticacao e componentes compartilhados entre aplicacoes.
+- Testes automatizados de API e fluxos de usuario com Vitest e Playwright.
 
-## Setup local
+## Stack e arquitetura
 
-1. Instale dependencias:
+- **Frontend:** React, TypeScript, Vite, React Router, TanStack Query, Zustand,
+  Motion e Lucide.
+- **Backend:** Node.js, TypeScript, Express, Zod, Pino e MySQL.
+- **Qualidade:** ESLint, TypeScript, Vitest e Playwright.
+- **Organizacao:** npm workspaces em um monorepo com apps, pacotes compartilhados,
+  migrations, seeds e scripts operacionais.
+
+Principais partes do repositorio:
+
+- `apps/web`: experiencia publica da loja.
+- `apps/admin`: painel administrativo.
+- `apps/api`: API de negocio, autenticacao e persistencia.
+- `apps/control` e `apps/control-api`: gerenciamento da plataforma white-label.
+- `packages/contracts`: contratos compartilhados entre frontend e backend.
+- `packages/design-system`: componentes e tokens de interface.
+- `packages/server-auth`: autenticacao reutilizavel no servidor.
+- `packages/instance-kit`: configuracao e bootstrap de instancias.
+- `database` e `scripts`: banco, migrations, seeds e automacoes locais.
+- `tests`: cenarios ponta a ponta com Playwright.
+
+## Como executar localmente
+
+1. Instale as dependencias:
 
 ```bash
 npm install
 ```
 
-2. Copie os exemplos de ambiente e preencha com credenciais de desenvolvimento:
+2. Crie os arquivos locais de ambiente a partir dos respectivos arquivos
+   `.env.example`.
 
-```bash
-cp apps/api/.env.example apps/api/.env
-cp apps/web/.env.example apps/web/.env
-cp apps/admin/.env.example apps/admin/.env
-```
+3. Preencha somente com credenciais exclusivas de desenvolvimento. Os arquivos
+   `.env` reais devem permanecer fora do controle de versao.
 
-3. Gere o hash da senha administrativa sem informar a senha na linha de comando:
-
-```bash
-npm --workspace @bespoke/api run auth:hash-password
-```
-
-Adicione o resultado em `ADMIN_PASSWORD_HASH` e defina o e-mail em `ADMIN_EMAIL`, ambos no `apps/api/.env`. A duracao da sessao pode ser ajustada por `ADMIN_SESSION_TTL_MINUTES`.
-
-Confirme localmente que a senha corresponde ao hash configurado, sem expor nenhum dos dois:
-
-```bash
-npm run admin:verify
-```
-
-Depois de alterar `ADMIN_EMAIL` ou `ADMIN_PASSWORD_HASH`, reinicie o processo da API para carregar as novas credenciais. Isso vale tanto no desenvolvimento quanto em producao; iniciar uma segunda API sem encerrar a anterior apenas causa conflito na porta `3333`.
-
-4. Configure o MySQL no `apps/api/.env`:
-
-```env
-DATABASE_URL=mysql://seu_usuario:sua_senha@localhost:3306/bespoke
-```
-
-As imagens enviadas pelo admin usam o caminho configurado em `UPLOADS_DIR` (por padrao, `apps/api/storage/uploads`). A API valida formato, tamanho e dimensoes e reprocessa PNG, JPG e WebP antes da publicacao. Em producao, use um diretorio persistente e exclusivo da instancia fora de qualquer `dist`.
-
-A vitrine invalida settings, categorias e produtos por Server-Sent Events sempre que a API conclui uma mutacao administrativa. O notificador atual vive no processo da API; uma implantacao com varias replicas deve substitui-lo por pub/sub compartilhado. O armazenamento local tambem depende de um volume persistente compartilhado e nao deve ser usado em containers efemeros sem esse volume.
-
-Para criar uma nova loja isolada:
-
-```bash
-npm run instance:create -- --slug=nome-da-loja --public-domain=loja.com.br --admin-domain=admin.loja.com.br --api-domain=api.loja.com.br
-```
-
-Depois copie `instances/nome-da-loja/.env.example` para o `.env` protegido da
-loja, preencha segredos/credenciais e use `npm run instance:validate`,
-`npm run instance:db:provision`, `npm run db:migrate:prod -- --instance=...` e
-`npm run instance:render`. O guia completo fica em
-`docs/WHITE_LABEL_INSTANCE_DEPLOYMENT.md`.
-
-As sessoes administrativas e o limite de tentativas usam memoria do processo nesta fase. Reiniciar a API encerra as sessoes ativas; uma implantacao com varias replicas deve usar um armazenamento compartilhado com expiracao, como Redis.
-
-Crie o banco se ele ainda nao existir:
-
-```sql
-CREATE DATABASE bespoke CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
-
-5. Se preferir usar o MySQL via Docker local do projeto, inicie o banco primeiro:
-
-```bash
-docker compose up -d mysql
-```
-
-Depois que o healthcheck estiver saudavel, aplique schema e dados iniciais uma unica vez:
-
-```bash
-npm run db:setup
-```
-
-O container nao executa migrations automaticamente. Em producao, use apenas `npm run db:migrate:prod` e execute o seed inicial separadamente, com confirmacao explicita.
-
-6. Rode os apps:
+4. Prepare o banco e inicie o ambiente usando os scripts definidos no
+   `package.json`:
 
 ```bash
 npm run dev
 ```
 
-## Portas
+Os enderecos locais ativos sao exibidos pelos proprios processos durante a
+inicializacao.
 
-- Loja: `http://localhost:5173`
-- Admin: `http://localhost:5174`
-- API: `http://localhost:3333`
+### Comandos uteis
+
+```bash
+npm run dev          # inicia web, admin, APIs e control plane
+npm run verify       # lint, typecheck, testes e builds
+npm run build        # gera os builds de todos os workspaces
+npm run test         # executa os testes unitarios e de integracao
+```
+
+Para os fluxos de pagamento e WhatsApp, configure as integracoes somente com
+credenciais de desenvolvimento. Os arquivos `.env` reais sao locais e nao
+devem ser commitados.
 
 ## Fluxos de compra
 
-- `Comprar pelo WhatsApp`: cria uma referencia publica e uma mensagem com itens, quantidades e valores gerados pelo servidor.
-- `Comprar online`: oferece Pix manual, quando habilitado, e cartao pelo Mercado Pago. Ambos cobram somente produtos e descontos; o frete permanece `NULL` e aparece como "A combinar pelo WhatsApp".
-- No Pix manual, a API gera BR Code e QR Code com o valor recalculado. O administrador confirma o recebimento no painel depois de conferir o comprovante.
-- O webhook assinado consulta o pagamento na API do Mercado Pago e e a unica fonte de verdade. A pagina de retorno consulta o estado registrado pela API antes de liberar o atendimento.
-- O token opaco de consulta do pedido permanece no `sessionStorage` da aba e segue para a API pelo cabecalho `Authorization`; ele nao e incluido nas URLs do Mercado Pago, do WhatsApp ou no historico do navegador.
+- Compra assistida pelo WhatsApp com dados do carrinho gerados pelo sistema.
+- Pagamento online com continuidade de atendimento para combinar entrega ou
+  retirada.
+- Pagamento por Pix quando habilitado pela loja.
+- Confirmacao financeira registrada pelo back-end antes da atualizacao do
+  pedido.
 
-Para testar localmente as notificacoes assinadas do Mercado Pago, use o tunel
-restrito descrito em
-[docs/LOCAL_MERCADO_PAGO_WEBHOOK.md](docs/LOCAL_MERCADO_PAGO_WEBHOOK.md).
-O fluxo, a configuracao por loja e os limites do Pix V1 estao em
-[docs/PIX_MANUAL.md](docs/PIX_MANUAL.md).
+## Configuracao segura
 
-## Producao
+- Nunca registre senhas, hashes, tokens, chaves, cookies ou credenciais reais em
+  arquivos Markdown.
+- Nunca inclua valores reais de ambiente em exemplos, comandos, logs, imagens
+  ou relatos de erro.
+- Use credenciais, banco, armazenamento e dominios exclusivos para cada loja.
+- Mantenha configuracoes de producao fora do repositorio e limite seu acesso aos
+  responsaveis pela operacao.
+- Segredos pertencem exclusivamente ao back-end. Variaveis publicadas no bundle
+  do navegador nao podem conter informacoes confidenciais.
+- Consulte a documentacao operacional restrita para provisionamento,
+  autenticacao, pagamentos, webhooks, infraestrutura e deploy.
 
-Nao use `npm run dev` em producao. A estrategia preparada usa Nginx para os builds estaticos e systemd para `npm run start:prod`. Comece por [docs/PRODUCTION_DEPLOYMENT.md](docs/PRODUCTION_DEPLOYMENT.md) e [docs/DEPLOYMENT_CHECKLIST.md](docs/DEPLOYMENT_CHECKLIST.md).
+## Seguranca e producao
 
-## Seguranca
+Segredos pertencem exclusivamente ao back-end. Nunca registre senhas, hashes,
+tokens, chaves, cookies ou credenciais reais no repositorio, em documentacao,
+logs ou imagens. O modo de desenvolvimento nao deve ser usado em producao: a
+publicacao exige builds de producao, HTTPS, persistencia, backups, isolamento
+por loja e gestao segura de credenciais.
 
-- O front end envia apenas IDs, variantes e quantidades para checkout.
-- A API recalcula precos, valida estoque e cria pedidos como `pending_payment`.
-- Em producao, catalogo, pedidos, pagamentos, WhatsApp e visual da vitrine usam o MySQL exclusivo definido em `DATABASE_URL`.
-- Webhooks sao validados por assinatura, consultados no provedor e processados com idempotencia antes de mudar status financeiro.
-- O admin usa senha com hash `scrypt`, sessao opaca em cookie `HttpOnly`, protecao CSRF e limite de tentativas de login.
-- O arquivo `.env` real nunca deve ser versionado, impresso ou copiado.
+## Proximos passos
+
+- Evoluir cobertura de testes e observabilidade.
+- Ampliar o gerenciamento de instancias no control plane.
+- Automatizar deploy e verificacoes de ambiente em CI/CD.
+- Adicionar documentacao de API e exemplos de integracao.
+
+## Objetivo do repositorio
+
+Este e um projeto demonstrativo para estudo e portfolio. Ele apresenta decisoes
+de produto e engenharia de ponta a ponta, sem expor credenciais ou dados reais.

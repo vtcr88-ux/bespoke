@@ -7,6 +7,25 @@ coverage/
 !.env.example
 !.env.production.example
 *.log
+*.har
+*.trace
+*.trace.zip
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.bak
+.npmrc
+!.npmrc.example
+credentials*.json
+*-credentials.json
+service-account*.json
 .DS_Store
 Thumbs.db
 .vite/
@@ -32,4 +51,8 @@ logs/
 .runtime/
 
 # Capturas geradas por ferramentas
-apps/web/.impeccable/screenshots/
+.tmp/
+**/.impeccable/screenshots/
+
+# Estado mutavel de desenvolvimento
+database/dev-commerce-store.json

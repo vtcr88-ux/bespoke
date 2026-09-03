@@ -607,6 +607,7 @@ export function createApp(
     "/admin/overview",
     requireAdmin(adminAuth, "reports:read"),
     asyncRoute(async (_req, res) => {
+      res.setHeader("Cache-Control", "private, no-store, max-age=0");
       res.json(await admin.overview());
     }),
   );

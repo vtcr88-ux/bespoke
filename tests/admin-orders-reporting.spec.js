@@ -1,7 +1,11 @@
 // @ts-check
+/* global document */
 import { expect, test } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
+import process from "node:process";
+import { URL } from "node:url";
 
 const adminOrigin = "http://localhost:4174";
 const contentTypes = {
@@ -21,9 +25,19 @@ const item = {
   imageUrl: "https://example.test/produto.png",
 };
 
+const inventoryProducts = [
+  { id: "active-1", status: "active", stock: 20, priceInCents: 28000 },
+  { id: "active-2", status: "active", stock: 10, priceInCents: 18000 },
+  { id: "active-3", status: "active", stock: 14, priceInCents: 35000 },
+  { id: "active-4", status: "active", stock: 10, priceInCents: 13500 },
+  { id: "active-5", status: "active", stock: 10, priceInCents: 13500 },
+  { id: "inactive-1", status: "inactive", stock: 500, priceInCents: 99900 },
+  { id: "inactive-2", status: "inactive", stock: 500, priceInCents: 99900 },
+];
+
 function order(overrides) {
   return {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     publicReference: "PED-BASE-001",
     customerName: "Cliente",
     customerEmail: "cliente@example.test",
@@ -132,23 +146,15 @@ async function prepareAdmin(page) {
     if (url.pathname === "/admin/products") {
       await route.fulfill({
         headers,
-        json: {
-          items: [
-            ...Array.from({ length: 5 }, (_, index) => ({
-              id: `active-${index}`,
-              status: "active",
-            })),
-            ...Array.from({ length: 2 }, (_, index) => ({
-              id: `inactive-${index}`,
-              status: "inactive",
-            })),
-          ],
-        },
+        json: { items: inventoryProducts },
       });
       return;
     }
     if (url.pathname === "/admin/overview") {
       const confirmed = activeOrders.filter((candidate) => candidate.revenueConfirmedAt);
+      const activeProducts = inventoryProducts.filter(
+        (product) => product.status === "active",
+      );
       await route.fulfill({
         headers,
         json: {
@@ -156,9 +162,15 @@ async function prepareAdmin(page) {
             confirmedRevenueInCents: confirmed.reduce((sum, candidate) => sum + candidate.totalInCents, 0),
             pendingOrders: 1,
             lowStockCount: 0,
-            activeProducts: 5,
-            activeStockUnits: 37,
-            inventoryValueInCents: 2124500,
+            activeProducts: activeProducts.length,
+            activeStockUnits: activeProducts.reduce(
+              (sum, product) => sum + product.stock,
+              0,
+            ),
+            inventoryValueInCents: activeProducts.reduce(
+              (sum, product) => sum + product.priceInCents * product.stock,
+              0,
+            ),
           },
           revenueByChannel: {
             online: confirmed.filter((candidate) => candidate.salesChannel === "online").reduce((sum, candidate) => sum + candidate.totalInCents, 0),
@@ -215,9 +227,9 @@ test("Pedidos e Relatorios usam periodos, receita real e historico reversivel", 
   await page.goto(`${adminOrigin}/`);
   const activeMetric = page.locator(".metric-card").filter({ hasText: "Produtos ativos" });
   await expect(activeMetric).toContainText("5");
-  await expect(activeMetric).toContainText("37 unidades");
+  await expect(activeMetric).toContainText("64 unidades");
   await expect(activeMetric).not.toContainText("R$ 21.245,00");
-  await expect(page.locator(".metric-card").filter({ hasText: "Valor do estoque ativo" })).toContainText("R$ 21.245,00");
+  await expect(page.locator(".metric-card").filter({ hasText: "Valor do estoque ativo" })).toContainText("R$ 15.000,00");
 
   await page.goto(`${adminOrigin}/pedidos`);
   await expect(

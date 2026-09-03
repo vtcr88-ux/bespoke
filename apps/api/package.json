@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --conditions=development src/server.ts",
-    "auth:hash-password": "tsx scripts/hash-admin-password.ts",
-    "auth:verify-password": "tsx scripts/verify-admin-password.ts",
+    "auth:hash-password": "tsx --conditions=development scripts/hash-admin-password.ts",
+    "auth:verify-password": "tsx --conditions=development scripts/verify-admin-password.ts",
     "db:setup": "tsx ../../scripts/db-setup.ts",
     "env:validate": "tsx scripts/validate-env.ts",
     "start": "node dist/server.js",
@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@bespoke/contracts": "0.1.0",
+    "@bespoke/server-auth": "0.1.0",
     "@thiagoprazeres/pix-static-brcode": "^1.0.1",
     "@types/cookie-parser": "^1.4.7",
     "@types/cors": "^2.8.17",

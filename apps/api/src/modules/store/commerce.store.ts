@@ -176,9 +176,27 @@ export const defaultStorefront: StorefrontSettings = {
   heroHeight: "balanced",
   featuredEyebrow: "Selecao inicial",
   featuredTitle: "Produtos em destaque",
+  featuredDescription: "Uma selecao preparada para facilitar sua escolha.",
   featuredLinkLabel: "Ver todos",
   featuredAddButtonLabel: "Adicionar",
   featuredAddedButtonLabel: "Adicionado",
+  categoryEyebrow: "Explore",
+  categoryTitle: "Compre por categoria",
+  categoryDescription: "Encontre rapidamente o que combina com o seu momento.",
+  categoryLinkLabel: "Ver catalogo completo",
+  categoryLayout: "rail",
+  categoryLimit: 6,
+  commerceEyebrow: "Compre do seu jeito",
+  commerceTitle: "Atendimento proximo ou pagamento online",
+  commerceDescription:
+    "Escolha a experiencia que faz mais sentido para voce, com a mesma seguranca em toda a jornada.",
+  commerceWhatsappTitle: "Comprar pelo WhatsApp",
+  commerceWhatsappDescription:
+    "Finalize com atendimento humano para tirar duvidas e combinar os detalhes diretamente com a loja.",
+  commerceOnlineTitle: "Pagar online",
+  commerceOnlineDescription:
+    "Conclua o pagamento com Pix ou cartao e continue o atendimento pelo WhatsApp quando necessario.",
+  commerceCtaLabel: "Explorar produtos",
   catalogEyebrow: "Loja",
   catalogTitle: "Catalogo",
   catalogDescription:
@@ -213,6 +231,11 @@ export const defaultStorefront: StorefrontSettings = {
   homeLayout: "editorial",
   productCardStyle: "boutique",
   imageFit: "contain",
+  homeProductImageRatio: "landscape",
+  homeProductDescriptionMode: "full",
+  homeProductColumnsDesktop: 4,
+  homeProductColumnsTablet: 2,
+  homeProductColumnsMobile: 2,
   homeSections: defaultHomeSections.map((section) => ({ ...section })),
   homeSectionSpacing: "balanced",
   homeTransitionPreset: "editorial",
@@ -230,7 +253,13 @@ export const defaultStorefront: StorefrontSettings = {
     navigation: { ...defaultStorefrontTextStyles.navigation },
     featuredEyebrow: { ...defaultStorefrontTextStyles.featuredEyebrow },
     featuredTitle: { ...defaultStorefrontTextStyles.featuredTitle },
+    categoryEyebrow: { ...defaultStorefrontTextStyles.categoryEyebrow },
+    categoryTitle: { ...defaultStorefrontTextStyles.categoryTitle },
+    categoryBody: { ...defaultStorefrontTextStyles.categoryBody },
     productCardTitle: { ...defaultStorefrontTextStyles.productCardTitle },
+    commerceEyebrow: { ...defaultStorefrontTextStyles.commerceEyebrow },
+    commerceTitle: { ...defaultStorefrontTextStyles.commerceTitle },
+    commerceBody: { ...defaultStorefrontTextStyles.commerceBody },
     reviewsEyebrow: { ...defaultStorefrontTextStyles.reviewsEyebrow },
     reviewsTitle: { ...defaultStorefrontTextStyles.reviewsTitle },
     reviewsBody: { ...defaultStorefrontTextStyles.reviewsBody },
@@ -338,8 +367,7 @@ function normalizeStoredOrder(value: StoredOrder): StoredOrder {
   const isOnline = value.salesChannel === "online";
   return {
     ...value,
-    paymentMethod:
-      value.paymentMethod ?? (isOnline ? "mercado_pago" : null),
+    paymentMethod: value.paymentMethod ?? (isOnline ? "mercado_pago" : null),
     paymentStatus: value.paymentStatus ?? (isOnline ? "pending" : null),
     shippingMode:
       value.shippingMode ?? (isOnline ? "legacy_calculated" : "manual"),
@@ -408,13 +436,46 @@ export function normalizeStorefrontSettings(
             ? (value?.manifestoLineOne ?? defaultStorefront.manifestoLineOne)
             : (value?.manifestoLineTwo ?? defaultStorefront.manifestoLineTwo),
       }));
+  const configuredHomeSections = value?.homeSections ?? [];
+  const knownHomeSectionIds = new Set(
+    defaultHomeSections.map((section) => section.id),
+  );
+  const seenHomeSectionIds = new Set<string>();
+  const homeSections: StorefrontSettings["homeSections"] =
+    configuredHomeSections.filter((section) => {
+      if (
+        !knownHomeSectionIds.has(section.id) ||
+        seenHomeSectionIds.has(section.id)
+      ) {
+        return false;
+      }
+      seenHomeSectionIds.add(section.id);
+      return true;
+    });
+  for (const section of defaultHomeSections) {
+    if (seenHomeSectionIds.has(section.id)) continue;
+    const nextSection = { ...section };
+    const featuredIndex = homeSections.findIndex(
+      (current) => current.id === "featured",
+    );
+    if (section.id === "categories" && featuredIndex >= 0) {
+      homeSections.splice(featuredIndex, 0, nextSection);
+    } else if (section.id === "commerce" && featuredIndex >= 0) {
+      homeSections.splice(featuredIndex + 1, 0, nextSection);
+    } else {
+      homeSections.push(nextSection);
+    }
+    seenHomeSectionIds.add(section.id);
+  }
   const legacyMotionPreset =
     value?.homeMotionPreset ?? defaultStorefront.homeMotionPreset;
   const legacyMotionByBlock = {
     manifesto: legacyMotionPreset,
     navigation: legacyMotionPreset,
+    categories: defaultStorefront.homeMotionByBlock.categories,
     featuredHeading: legacyMotionPreset,
     productCards: legacyMotionPreset,
+    commerce: defaultStorefront.homeMotionByBlock.commerce,
     reviews: defaultStorefront.homeMotionByBlock.reviews,
     footer: legacyMotionPreset,
   };
@@ -457,9 +518,33 @@ export function normalizeStorefrontSettings(
       ...defaultStorefront.homeTextStyles.featuredTitle,
       ...(configuredTextStyles?.featuredTitle ?? {}),
     },
+    categoryEyebrow: {
+      ...defaultStorefront.homeTextStyles.categoryEyebrow,
+      ...(configuredTextStyles?.categoryEyebrow ?? {}),
+    },
+    categoryTitle: {
+      ...defaultStorefront.homeTextStyles.categoryTitle,
+      ...(configuredTextStyles?.categoryTitle ?? {}),
+    },
+    categoryBody: {
+      ...defaultStorefront.homeTextStyles.categoryBody,
+      ...(configuredTextStyles?.categoryBody ?? {}),
+    },
     productCardTitle: {
       ...defaultStorefront.homeTextStyles.productCardTitle,
       ...(configuredTextStyles?.productCardTitle ?? {}),
+    },
+    commerceEyebrow: {
+      ...defaultStorefront.homeTextStyles.commerceEyebrow,
+      ...(configuredTextStyles?.commerceEyebrow ?? {}),
+    },
+    commerceTitle: {
+      ...defaultStorefront.homeTextStyles.commerceTitle,
+      ...(configuredTextStyles?.commerceTitle ?? {}),
+    },
+    commerceBody: {
+      ...defaultStorefront.homeTextStyles.commerceBody,
+      ...(configuredTextStyles?.commerceBody ?? {}),
     },
     reviewsEyebrow: {
       ...defaultStorefront.homeTextStyles.reviewsEyebrow,
@@ -526,6 +611,7 @@ export function normalizeStorefrontSettings(
       value?.heroSecondaryCtaLabel ??
       defaultStorefront.editorialSupportLabel,
     manifestoItems,
+    homeSections,
     homeMotionByBlock,
     homeTextStyles,
     catalogTextStyles,
@@ -1050,7 +1136,7 @@ export class CommerceStore implements CommerceStoreAdapter {
           ? "cancelled"
           : order.shippingStatus,
       revenueConfirmedAt: approved
-        ? order.revenueConfirmedAt ?? new Date().toISOString()
+        ? (order.revenueConfirmedAt ?? new Date().toISOString())
         : refunded || cancelled
           ? null
           : order.revenueConfirmedAt,
@@ -1101,10 +1187,7 @@ export class CommerceStore implements CommerceStoreAdapter {
     return true;
   }
 
-  setPixPaymentStatus(
-    orderReference: string,
-    status: "approved" | "rejected",
-  ) {
+  setPixPaymentStatus(orderReference: string, status: "approved" | "rejected") {
     const existing = assertFound(
       this.state.orders.find(
         (order) =>
@@ -1127,8 +1210,7 @@ export class CommerceStore implements CommerceStoreAdapter {
       ...existing,
       paymentStatus: status,
       status: status === "approved" ? "paid" : "cancelled",
-      shippingStatus:
-        status === "approved" ? "awaiting_contact" : "cancelled",
+      shippingStatus: status === "approved" ? "awaiting_contact" : "cancelled",
       revenueConfirmedAt: status === "approved" ? now : null,
       updatedAt: now,
     };
@@ -1182,7 +1264,9 @@ export class CommerceStore implements CommerceStoreAdapter {
     const now = new Date().toISOString();
     const updated: StoredOrder = {
       ...existing,
-      revenueConfirmedAt: confirmed ? existing.revenueConfirmedAt ?? now : null,
+      revenueConfirmedAt: confirmed
+        ? (existing.revenueConfirmedAt ?? now)
+        : null,
       updatedAt: now,
     };
     this.state.orders = this.state.orders.map((order) =>
@@ -1198,7 +1282,7 @@ export class CommerceStore implements CommerceStoreAdapter {
     let changed = 0;
     this.state.orders = this.state.orders.map((order) => {
       if (!references.has(order.publicReference)) return order;
-      const archivedAt = input.archived ? order.archivedAt ?? now : null;
+      const archivedAt = input.archived ? (order.archivedAt ?? now) : null;
       if (archivedAt === order.archivedAt) return order;
       changed += 1;
       return { ...order, archivedAt, updatedAt: now };

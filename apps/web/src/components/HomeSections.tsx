@@ -1,7 +1,14 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Pause, Play, Star } from "lucide-react";
+import {
+  ArrowRight,
+  CreditCard,
+  MessageCircle,
+  Pause,
+  Play,
+  Star,
+} from "lucide-react";
 import {
   motion,
   useAnimationFrame,
@@ -9,7 +16,11 @@ import {
   useMotionValue,
   useReducedMotion,
 } from "motion/react";
-import type { ManifestoItem, StorefrontSettings } from "@bespoke/contracts";
+import type {
+  Category,
+  ManifestoItem,
+  StorefrontSettings,
+} from "@bespoke/contracts";
 import {
   getHomeMotionVariants,
   scrollRevealViewport,
@@ -243,6 +254,7 @@ export function EditorialNavigation({
 export function FeaturedCollectionHeading({
   eyebrow,
   title,
+  description,
   actionLabel,
   actionTo,
   motionEnabled,
@@ -251,6 +263,7 @@ export function FeaturedCollectionHeading({
 }: {
   eyebrow: string;
   title: string;
+  description?: string;
   actionLabel: string;
   actionTo: string;
   motionEnabled: boolean;
@@ -282,6 +295,14 @@ export function FeaturedCollectionHeading({
         {title.trim() ? (
           <motion.h2 variants={variants.title}>{title}</motion.h2>
         ) : null}
+        {description?.trim() ? (
+          <motion.p
+            className="section-heading__description"
+            variants={variants.title}
+          >
+            {description}
+          </motion.p>
+        ) : null}
       </div>
       {actionLabel.trim() ? (
         <motion.div variants={variants.action}>
@@ -292,6 +313,234 @@ export function FeaturedCollectionHeading({
         </motion.div>
       ) : null}
     </motion.div>
+  );
+}
+
+type CategoryNavigationSectionProps = {
+  actionLabel: string;
+  description: string;
+  eyebrow: string;
+  items: Category[];
+  layout: StorefrontSettings["categoryLayout"];
+  loading: boolean;
+  motionEnabled: boolean;
+  motionIntensity: StorefrontSettings["homeMotionIntensity"];
+  motionPreset: StorefrontSettings["homeMotionPreset"];
+  title: string;
+};
+
+export function CategoryNavigationSection({
+  actionLabel,
+  description,
+  eyebrow,
+  items,
+  layout,
+  loading,
+  motionEnabled,
+  motionIntensity,
+  motionPreset,
+  title,
+}: CategoryNavigationSectionProps) {
+  const reducedMotion = useReducedMotion();
+  const variants = getHomeMotionVariants({
+    enabled: motionEnabled,
+    preset: motionPreset,
+    intensity: motionIntensity,
+  });
+  const hasHeading = Boolean(
+    eyebrow.trim() || title.trim() || description.trim() || actionLabel.trim(),
+  );
+
+  if (!loading && !items.length) return null;
+
+  return (
+    <section
+      aria-labelledby={title.trim() ? "home-categories-title" : undefined}
+      className="home-categories"
+      data-category-layout={layout}
+    >
+      {hasHeading ? (
+        <motion.header
+          className="home-categories__heading"
+          initial={reducedMotion ? false : "hidden"}
+          variants={variants.sectionContainer}
+          viewport={scrollRevealViewport.homeSection}
+          whileInView="visible"
+        >
+          <div>
+            {eyebrow.trim() ? (
+              <motion.p variants={variants.eyebrow}>{eyebrow}</motion.p>
+            ) : null}
+            {title.trim() ? (
+              <motion.h2 id="home-categories-title" variants={variants.title}>
+                {title}
+              </motion.h2>
+            ) : null}
+            {description.trim() ? (
+              <motion.p
+                className="home-categories__description"
+                variants={variants.title}
+              >
+                {description}
+              </motion.p>
+            ) : null}
+          </div>
+          {actionLabel.trim() ? (
+            <motion.div variants={variants.action}>
+              <Link className="home-categories__action" to="/catalogo">
+                <span>{actionLabel}</span>
+                <ArrowRight aria-hidden="true" size={17} />
+              </Link>
+            </motion.div>
+          ) : null}
+        </motion.header>
+      ) : null}
+      <div className="home-categories__list" role="list">
+        {loading
+          ? Array.from({ length: 4 }, (_, index) => (
+              <span
+                aria-hidden="true"
+                className="home-category-link home-category-link--loading"
+                key={index}
+              />
+            ))
+          : items.map((category, index) => (
+              <motion.div
+                custom={index}
+                initial={reducedMotion ? false : "hidden"}
+                key={category.id}
+                role="listitem"
+                variants={variants.navigationItem}
+                viewport={scrollRevealViewport.homeCards}
+                whileInView="visible"
+              >
+                <Link
+                  className="home-category-link"
+                  to={`/catalogo?category=${encodeURIComponent(category.slug)}`}
+                >
+                  <span aria-hidden="true">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <strong>{category.name}</strong>
+                  {category.description?.trim() ? (
+                    <small>{category.description}</small>
+                  ) : null}
+                  <ArrowRight aria-hidden="true" size={18} />
+                </Link>
+              </motion.div>
+            ))}
+      </div>
+    </section>
+  );
+}
+
+type CommerceExperienceProps = {
+  actionLabel: string;
+  description: string;
+  eyebrow: string;
+  motionEnabled: boolean;
+  motionIntensity: StorefrontSettings["homeMotionIntensity"];
+  motionPreset: StorefrontSettings["homeMotionPreset"];
+  onlineDescription: string;
+  onlineTitle: string;
+  title: string;
+  whatsappDescription: string;
+  whatsappTitle: string;
+};
+
+export function CommerceExperience({
+  actionLabel,
+  description,
+  eyebrow,
+  motionEnabled,
+  motionIntensity,
+  motionPreset,
+  onlineDescription,
+  onlineTitle,
+  title,
+  whatsappDescription,
+  whatsappTitle,
+}: CommerceExperienceProps) {
+  const reducedMotion = useReducedMotion();
+  const variants = getHomeMotionVariants({
+    enabled: motionEnabled,
+    preset: motionPreset,
+    intensity: motionIntensity,
+  });
+
+  if (
+    ![
+      eyebrow,
+      title,
+      description,
+      whatsappTitle,
+      whatsappDescription,
+      onlineTitle,
+      onlineDescription,
+    ].some((value) => value.trim())
+  ) {
+    return null;
+  }
+
+  return (
+    <section
+      aria-labelledby={title.trim() ? "home-commerce-title" : undefined}
+      className="home-commerce"
+    >
+      <motion.div
+        className="home-commerce__inner"
+        initial={reducedMotion ? false : "hidden"}
+        variants={variants.sectionContainer}
+        viewport={scrollRevealViewport.homeSection}
+        whileInView="visible"
+      >
+        <div className="home-commerce__intro">
+          {eyebrow.trim() ? (
+            <motion.p variants={variants.eyebrow}>{eyebrow}</motion.p>
+          ) : null}
+          {title.trim() ? (
+            <motion.h2 id="home-commerce-title" variants={variants.title}>
+              {title}
+            </motion.h2>
+          ) : null}
+          {description.trim() ? (
+            <motion.p
+              className="home-commerce__description"
+              variants={variants.title}
+            >
+              {description}
+            </motion.p>
+          ) : null}
+          {actionLabel.trim() ? (
+            <motion.div variants={variants.action}>
+              <Link
+                className="store-button store-button--primary"
+                to="/catalogo"
+              >
+                <span>{actionLabel}</span>
+                <ArrowRight aria-hidden="true" size={17} />
+              </Link>
+            </motion.div>
+          ) : null}
+        </div>
+        <div className="home-commerce__modes">
+          <motion.article variants={variants.title}>
+            <MessageCircle aria-hidden="true" size={22} />
+            <div>
+              {whatsappTitle.trim() ? <h3>{whatsappTitle}</h3> : null}
+              {whatsappDescription.trim() ? <p>{whatsappDescription}</p> : null}
+            </div>
+          </motion.article>
+          <motion.article variants={variants.title}>
+            <CreditCard aria-hidden="true" size={22} />
+            <div>
+              {onlineTitle.trim() ? <h3>{onlineTitle}</h3> : null}
+              {onlineDescription.trim() ? <p>{onlineDescription}</p> : null}
+            </div>
+          </motion.article>
+        </div>
+      </motion.div>
+    </section>
   );
 }
 

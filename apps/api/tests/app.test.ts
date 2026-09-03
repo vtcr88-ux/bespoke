@@ -126,6 +126,29 @@ describe("Bespoke API", () => {
     });
   });
 
+  it("adds new commerce sections to legacy Home settings without reordering them", () => {
+    const normalized = normalizeStorefrontSettings({
+      ...defaultStorefront,
+      homeSections: [
+        { id: "featured", enabled: true },
+        { id: "navigation", enabled: false },
+        { id: "manifesto", enabled: true },
+      ],
+    });
+
+    expect(normalized.homeSections).toEqual([
+      { id: "categories", enabled: true },
+      { id: "featured", enabled: true },
+      { id: "commerce", enabled: true },
+      { id: "navigation", enabled: false },
+      { id: "manifesto", enabled: true },
+    ]);
+    expect(normalized.homeMotionByBlock).toMatchObject({
+      categories: "cascade",
+      commerce: "soft",
+    });
+  });
+
   it("lists catalog products with cursor pagination", async () => {
     const response = await request(app)
       .get("/catalog/products?limit=2")
@@ -200,10 +223,8 @@ describe("Bespoke API", () => {
       (product: { status: string }) => product.status === "active",
     );
     const expectedInventoryValue = activeProducts.reduce(
-      (
-        total: number,
-        product: { priceInCents: number; stock: number },
-      ) => total + product.priceInCents * product.stock,
+      (total: number, product: { priceInCents: number; stock: number }) =>
+        total + product.priceInCents * product.stock,
       0,
     );
     const expectedStockUnits = activeProducts.reduce(
@@ -215,6 +236,7 @@ describe("Bespoke API", () => {
       .set(session)
       .expect(200);
 
+    expect(initialOverview.headers["cache-control"]).toContain("no-store");
     expect(initialOverview.body.metrics).toMatchObject({
       activeProducts: activeProducts.length,
       activeStockUnits: expectedStockUnits,
@@ -262,12 +284,12 @@ describe("Bespoke API", () => {
       confirmedOverview.body.metrics.confirmedRevenueInCents -
         initialOverview.body.metrics.confirmedRevenueInCents,
     ).toBe(order.totalInCents);
-    expect(confirmedOverview.body.revenueByChannel.whatsapp).toBeGreaterThanOrEqual(
-      order.totalInCents,
-    );
-    expect(confirmedOverview.body.monthlyRevenue[0].totalInCents).toBeGreaterThanOrEqual(
-      order.totalInCents,
-    );
+    expect(
+      confirmedOverview.body.revenueByChannel.whatsapp,
+    ).toBeGreaterThanOrEqual(order.totalInCents);
+    expect(
+      confirmedOverview.body.monthlyRevenue[0].totalInCents,
+    ).toBeGreaterThanOrEqual(order.totalInCents);
 
     await request(app)
       .patch("/admin/orders/archive")
@@ -573,9 +595,7 @@ describe("Bespoke API", () => {
       })
       .expect(502);
 
-    expect(response.body.error.code).toBe(
-      "MERCADO_PAGO_PREFERENCE_FAILED",
-    );
+    expect(response.body.error.code).toBe("MERCADO_PAGO_PREFERENCE_FAILED");
     expect(response.body.error.message).toContain("Mercado Pago");
   });
 
@@ -858,7 +878,8 @@ describe("Bespoke API", () => {
       .send({ email: adminEmail, password: adminPassword })
       .expect(200);
     const previewSession = {
-      Cookie: String(login.headers["set-cookie"]?.[0] ?? "").split(";")[0] ?? "",
+      Cookie:
+        String(login.headers["set-cookie"]?.[0] ?? "").split(";")[0] ?? "",
       "x-csrf-token": login.body.csrfToken,
     };
     const current = await request(previewApp)
@@ -1021,8 +1042,10 @@ describe("Bespoke API", () => {
       homeMotionByBlock: {
         manifesto: "scroll",
         navigation: "cascade",
+        categories: "cascade",
         featuredHeading: "soft",
         productCards: "structured",
+        commerce: "soft",
         reviews: "soft",
         footer: "subtle",
       },
@@ -1253,6 +1276,15 @@ describe("Bespoke API", () => {
   });
 
   it("publishes, edits, hides and deletes products without removing referenced images", async () => {
+    const initialOverview = await request(app)
+      .get("/admin/overview")
+      .set(session)
+      .expect(200);
+    const initialMetrics = initialOverview.body.metrics as {
+      activeProducts: number;
+      activeStockUnits: number;
+      inventoryValueInCents: number;
+    };
     const category = await request(app)
       .post("/admin/categories")
       .set(session)
@@ -1315,6 +1347,17 @@ describe("Bespoke API", () => {
       contentType: "image/png",
       sizeBytes: uploaded.body.sizeBytes,
     });
+    const overviewAfterCreate = await request(app)
+      .get("/admin/overview")
+      .set(session)
+      .expect(200);
+    expect(overviewAfterCreate.body.metrics).toMatchObject({
+      activeProducts: initialMetrics.activeProducts + 1,
+      activeStockUnits: initialMetrics.activeStockUnits + payload.stock,
+      inventoryValueInCents:
+        initialMetrics.inventoryValueInCents +
+        payload.priceInCents * payload.stock,
+    });
     const featured = await request(app)
       .get("/catalog/products?limit=24&featured=true&sort=featured")
       .expect(200);
@@ -1369,6 +1412,16 @@ describe("Bespoke API", () => {
       contentType: "image/webp",
       sizeBytes: 456_789,
     });
+    const overviewAfterUpdate = await request(app)
+      .get("/admin/overview")
+      .set(session)
+      .expect(200);
+    expect(overviewAfterUpdate.body.metrics).toMatchObject({
+      activeProducts: initialMetrics.activeProducts + 1,
+      activeStockUnits: initialMetrics.activeStockUnits + payload.stock,
+      inventoryValueInCents:
+        initialMetrics.inventoryValueInCents + 13_900 * payload.stock,
+    });
     await request(app).get(new URL(uploaded.body.url).pathname).expect(404);
 
     const publicProduct = await request(app)
@@ -1403,6 +1456,11 @@ describe("Bespoke API", () => {
         (product: { id: string }) => product.id === created.body.id,
       ),
     ).toBe(false);
+    const overviewAfterDelete = await request(app)
+      .get("/admin/overview")
+      .set(session)
+      .expect(200);
+    expect(overviewAfterDelete.body.metrics).toMatchObject(initialMetrics);
     await request(app)
       .get(`/catalog/products/${updated.body.slug}`)
       .expect(404);

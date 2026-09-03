@@ -222,11 +222,47 @@ export const defaultStorefrontTextStyles = {
     spacingAfter: 0,
     fontFamily: "display",
   },
+  categoryEyebrow: {
+    color: "",
+    fontSize: 13,
+    spacingAfter: 10,
+    fontFamily: "body",
+  },
+  categoryTitle: {
+    color: "",
+    fontSize: 44,
+    spacingAfter: 14,
+    fontFamily: "display",
+  },
+  categoryBody: {
+    color: "",
+    fontSize: 16,
+    spacingAfter: 0,
+    fontFamily: "body",
+  },
   productCardTitle: {
     color: "",
     fontSize: 26,
     spacingAfter: 12,
     fontFamily: "display",
+  },
+  commerceEyebrow: {
+    color: "",
+    fontSize: 13,
+    spacingAfter: 10,
+    fontFamily: "body",
+  },
+  commerceTitle: {
+    color: "",
+    fontSize: 48,
+    spacingAfter: 18,
+    fontFamily: "display",
+  },
+  commerceBody: {
+    color: "",
+    fontSize: 16,
+    spacingAfter: 0,
+    fontFamily: "body",
   },
   reviewsEyebrow: {
     color: "",
@@ -262,7 +298,13 @@ const homeTextStylesSchema = z
     navigation: storefrontTextStyleSchema,
     featuredEyebrow: storefrontTextStyleSchema,
     featuredTitle: storefrontTextStyleSchema,
+    categoryEyebrow: storefrontTextStyleSchema,
+    categoryTitle: storefrontTextStyleSchema,
+    categoryBody: storefrontTextStyleSchema,
     productCardTitle: storefrontTextStyleSchema,
+    commerceEyebrow: storefrontTextStyleSchema,
+    commerceTitle: storefrontTextStyleSchema,
+    commerceBody: storefrontTextStyleSchema,
     reviewsEyebrow: storefrontTextStyleSchema,
     reviewsTitle: storefrontTextStyleSchema,
     reviewsBody: storefrontTextStyleSchema,
@@ -347,8 +389,10 @@ export const homeMotionPresetSchema = z.enum([
 export const defaultHomeMotionByBlock = {
   manifesto: "scroll",
   navigation: "cascade",
+  categories: "cascade",
   featuredHeading: "scroll",
   productCards: "cascade",
+  commerce: "soft",
   reviews: "soft",
   footer: "soft",
 } as const;
@@ -357,8 +401,10 @@ const homeMotionByBlockSchema = z
   .object({
     manifesto: homeMotionPresetSchema,
     navigation: homeMotionPresetSchema,
+    categories: homeMotionPresetSchema,
     featuredHeading: homeMotionPresetSchema,
     productCards: homeMotionPresetSchema,
+    commerce: homeMotionPresetSchema,
     reviews: homeMotionPresetSchema,
     footer: homeMotionPresetSchema,
   })
@@ -392,7 +438,9 @@ export const defaultManifestoItems = [
 export const defaultHomeSections = [
   { id: "manifesto", enabled: true },
   { id: "navigation", enabled: true },
+  { id: "categories", enabled: true },
   { id: "featured", enabled: true },
+  { id: "commerce", enabled: true },
 ] as const;
 
 export const orderStatusSchema = z.enum([
@@ -437,7 +485,11 @@ const pixKeySchema = z
 function isValidPixKey(value: string) {
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return true;
   if (/^\+[1-9]\d{7,14}$/.test(value)) return true;
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+  if (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+  ) {
     return true;
   }
   const digits = value.replace(/\D/g, "");
@@ -468,9 +520,10 @@ function documentCheckDigit(value: string, startWeight: number) {
 }
 
 function cnpjCheckDigit(value: string) {
-  const weights = value.length === 12
-    ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
-    : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  const weights =
+    value.length === 12
+      ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+      : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
   const sum = [...value].reduce(
     (total, digit, index) => total + Number(digit) * weights[index]!,
     0,
@@ -677,10 +730,7 @@ const pixPaymentDetailsShape = {
   amountInCents: moneyInCentsSchema,
   currency: z.literal("BRL"),
   pixCode: z.string().min(40).max(600),
-  qrCodeDataUrl: z
-    .string()
-    .startsWith("data:image/png;base64,")
-    .max(250_000),
+  qrCodeDataUrl: z.string().startsWith("data:image/png;base64,").max(250_000),
   whatsappUrl: z.string().url(),
   paymentStatus: paymentStatusSchema,
   status: z.enum(["pending_confirmation", "approved", "rejected"]),
@@ -912,17 +962,23 @@ const reviewItemSchema = z
 
 const homeSectionSchema = z
   .object({
-    id: z.enum(["manifesto", "navigation", "featured"]),
+    id: z.enum([
+      "manifesto",
+      "navigation",
+      "categories",
+      "featured",
+      "commerce",
+    ]),
     enabled: z.boolean(),
   })
   .strict();
 
 const homeSectionsSchema = z
   .array(homeSectionSchema)
-  .length(3)
+  .length(5)
   .superRefine((sections, context) => {
     const ids = new Set(sections.map((section) => section.id));
-    if (ids.size !== 3) {
+    if (ids.size !== 5) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Cada secao da Home deve aparecer uma unica vez.",
@@ -1008,9 +1064,74 @@ export const storefrontSettingsSchema = z
       .default("balanced"),
     featuredEyebrow: z.string().min(2).max(80).default("Selecao inicial"),
     featuredTitle: z.string().min(2).max(100).default("Produtos em destaque"),
+    featuredDescription: z
+      .string()
+      .trim()
+      .max(220)
+      .default("Uma selecao preparada para facilitar sua escolha."),
     featuredLinkLabel: z.string().min(2).max(80).default("Ver todos"),
     featuredAddButtonLabel: z.string().min(2).max(40).default("Adicionar"),
     featuredAddedButtonLabel: z.string().min(2).max(40).default("Adicionado"),
+    categoryEyebrow: z.string().trim().max(80).default("Explore"),
+    categoryTitle: z.string().trim().max(100).default("Compre por categoria"),
+    categoryDescription: z
+      .string()
+      .trim()
+      .max(220)
+      .default("Encontre rapidamente o que combina com o seu momento."),
+    categoryLinkLabel: z
+      .string()
+      .trim()
+      .min(2)
+      .max(60)
+      .default("Ver catalogo completo"),
+    categoryLayout: z.enum(["rail", "grid"]).default("rail"),
+    categoryLimit: z.number().int().min(3).max(8).default(6),
+    commerceEyebrow: z.string().trim().max(80).default("Compre do seu jeito"),
+    commerceTitle: z
+      .string()
+      .trim()
+      .max(120)
+      .default("Atendimento proximo ou pagamento online"),
+    commerceDescription: z
+      .string()
+      .trim()
+      .max(280)
+      .default(
+        "Escolha a experiencia que faz mais sentido para voce, com a mesma seguranca em toda a jornada.",
+      ),
+    commerceWhatsappTitle: z
+      .string()
+      .trim()
+      .min(2)
+      .max(80)
+      .default("Comprar pelo WhatsApp"),
+    commerceWhatsappDescription: z
+      .string()
+      .trim()
+      .max(180)
+      .default(
+        "Finalize com atendimento humano para tirar duvidas e combinar os detalhes diretamente com a loja.",
+      ),
+    commerceOnlineTitle: z
+      .string()
+      .trim()
+      .min(2)
+      .max(80)
+      .default("Pagar online"),
+    commerceOnlineDescription: z
+      .string()
+      .trim()
+      .max(180)
+      .default(
+        "Conclua o pagamento com Pix ou cartao e continue o atendimento pelo WhatsApp quando necessario.",
+      ),
+    commerceCtaLabel: z
+      .string()
+      .trim()
+      .min(2)
+      .max(60)
+      .default("Explorar produtos"),
     catalogEyebrow: z.string().trim().max(80).default("Loja"),
     catalogTitle: z.string().trim().min(2).max(100).default("Catalogo"),
     catalogDescription: z
@@ -1030,7 +1151,7 @@ export const storefrontSettingsSchema = z
     catalogButtonBackgroundColor: colorSchema.default("#090907"),
     catalogButtonTextColor: colorSchema.default("#ffffff"),
     catalogCardStyle: z
-      .enum(["minimal", "boutique", "editorial"])
+      .enum(["minimal", "boutique", "editorial", "ecommerce"])
       .default("boutique"),
     catalogImageFit: z.enum(["contain", "cover"]).default("contain"),
     catalogImageRatio: z
@@ -1050,9 +1171,14 @@ export const storefrontSettingsSchema = z
       .enum(["editorial", "compact", "showcase"])
       .default("editorial"),
     productCardStyle: z
-      .enum(["minimal", "boutique", "editorial"])
+      .enum(["minimal", "boutique", "editorial", "ecommerce"])
       .default("boutique"),
     imageFit: z.enum(["contain", "cover"]).default("contain"),
+    homeProductImageRatio: z.enum(["square", "landscape"]).default("landscape"),
+    homeProductDescriptionMode: z.enum(["full", "compact"]).default("full"),
+    homeProductColumnsDesktop: z.number().int().min(3).max(4).default(4),
+    homeProductColumnsTablet: z.number().int().min(2).max(3).default(2),
+    homeProductColumnsMobile: z.number().int().min(1).max(2).default(2),
     homeSections: homeSectionsSchema.default(
       defaultHomeSections.map((section) => ({ ...section })),
     ),
@@ -1168,6 +1294,126 @@ export const storefrontSettingsSchema = z
   })
   .strict();
 
+const controlDomainSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .max(253)
+  .regex(
+    /^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/,
+    "Use um dominio valido sem protocolo ou caminho.",
+  );
+
+export const controlInstanceStatusSchema = z.enum([
+  "draft",
+  "prepared",
+  "provisioning",
+  "active",
+  "failed",
+  "suspended",
+]);
+
+const controlInstanceFields = {
+  slug: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(
+      /^[a-z0-9][a-z0-9-]{2,62}$/,
+      "Use letras minusculas, numeros e hifens.",
+    ),
+  name: z.string().trim().min(2).max(120),
+  publicDomain: controlDomainSchema,
+  adminDomain: controlDomainSchema,
+  apiDomain: controlDomainSchema,
+  ownerEmail: z.string().trim().toLowerCase().email().max(254),
+  whatsappPhone: z
+    .string()
+    .trim()
+    .regex(/^\d{10,15}$/)
+    .or(z.literal(""))
+    .default(""),
+  notes: z.string().trim().max(500).default(""),
+} as const;
+
+export const controlInstanceInputSchema = z
+  .object(controlInstanceFields)
+  .strict()
+  .refine(
+    (value) =>
+      new Set([value.publicDomain, value.adminDomain, value.apiDomain]).size ===
+      3,
+    {
+      message:
+        "Os dominios publico, administrativo e da API devem ser diferentes.",
+      path: ["apiDomain"],
+    },
+  );
+
+export const controlInstanceSchema = z
+  .object({
+    ...controlInstanceFields,
+    id: z.string().uuid(),
+    apiPort: z.number().int().min(1024).max(65535),
+    status: controlInstanceStatusSchema,
+    lastErrorCode: z.string().max(80).nullable(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      new Set([value.publicDomain, value.adminDomain, value.apiDomain]).size ===
+      3,
+    {
+      message:
+        "Os dominios publico, administrativo e da API devem ser diferentes.",
+      path: ["apiDomain"],
+    },
+  );
+
+export const controlInstanceEventSchema = z
+  .object({
+    id: z.string().uuid(),
+    instanceId: z.string().uuid(),
+    type: z.enum([
+      "created",
+      "prepared",
+      "status_changed",
+      "preparation_failed",
+    ]),
+    message: z.string().trim().min(1).max(240),
+    createdAt: z.string().datetime(),
+  })
+  .strict();
+
+export const controlOverviewSchema = z
+  .object({
+    total: z.number().int().nonnegative(),
+    draft: z.number().int().nonnegative(),
+    prepared: z.number().int().nonnegative(),
+    active: z.number().int().nonnegative(),
+    attention: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export const controlReadinessItemSchema = z
+  .object({
+    key: z.string().trim().min(1).max(60),
+    label: z.string().trim().min(1).max(100),
+    status: z.enum(["pending", "ready", "blocked"]),
+    detail: z.string().trim().min(1).max(240),
+  })
+  .strict();
+
+export const controlReadinessSchema = z
+  .object({
+    instanceId: z.string().uuid(),
+    readyToProvision: z.boolean(),
+    items: z.array(controlReadinessItemSchema).max(12),
+  })
+  .strict();
+
 export type Category = z.infer<typeof categorySchema>;
 export type Product = z.infer<typeof productSchema>;
 export type CatalogQuery = z.infer<typeof catalogQuerySchema>;
@@ -1219,3 +1465,10 @@ export type ImageDeleteResponse = z.infer<typeof imageDeleteResponseSchema>;
 export type SupportedImageContentType = z.infer<
   typeof supportedImageContentTypeSchema
 >;
+export type ControlInstanceStatus = z.infer<typeof controlInstanceStatusSchema>;
+export type ControlInstanceInput = z.infer<typeof controlInstanceInputSchema>;
+export type ControlInstance = z.infer<typeof controlInstanceSchema>;
+export type ControlInstanceEvent = z.infer<typeof controlInstanceEventSchema>;
+export type ControlOverview = z.infer<typeof controlOverviewSchema>;
+export type ControlReadinessItem = z.infer<typeof controlReadinessItemSchema>;
+export type ControlReadiness = z.infer<typeof controlReadinessSchema>;

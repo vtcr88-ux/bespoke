@@ -1360,8 +1360,13 @@ function Orders() {
     },
   });
   const whatsappRevenue = useMutation({
-    mutationFn: ({ reference, confirmed }: { reference: string; confirmed: boolean }) =>
-      setWhatsappRevenueConfirmed(reference, confirmed),
+    mutationFn: ({
+      reference,
+      confirmed,
+    }: {
+      reference: string;
+      confirmed: boolean;
+    }) => setWhatsappRevenueConfirmed(reference, confirmed),
     onSuccess() {
       setNotice("Receita do pedido atualizada.");
       void queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
@@ -1435,7 +1440,11 @@ function Orders() {
         <section className="panel history-maintenance">
           <div>
             <p className="panel-eyebrow">Organizacao do historico</p>
-            <h2>{showArchived ? "Restaurar pedidos arquivados" : "Arquivar pedidos de teste"}</h2>
+            <h2>
+              {showArchived
+                ? "Restaurar pedidos arquivados"
+                : "Arquivar pedidos de teste"}
+            </h2>
             <p>
               {showArchived
                 ? "Os pedidos voltam a participar do Dashboard e dos Relatorios."
@@ -1448,7 +1457,9 @@ function Orders() {
             onClick={() => setConfirmArchive(true)}
           >
             {showArchived ? <RotateCcw size={16} /> : <Archive size={16} />}
-            {showArchived ? "Restaurar este historico" : "Arquivar historico atual"}
+            {showArchived
+              ? "Restaurar este historico"
+              : "Arquivar historico atual"}
           </Button>
         </section>
       ) : null}
@@ -1524,7 +1535,8 @@ function OrderOperations({
           <p className="panel-eyebrow">{order.publicReference}</p>
           <h2>Entrega e atendimento</h2>
           <p>
-            Pagamento: {paymentMethodLabel(order)} - {order.paymentStatus ?? "nao aplicavel"}
+            Pagamento: {paymentMethodLabel(order)} -{" "}
+            {order.paymentStatus ?? "nao aplicavel"}
           </p>
           {!paymentApproved ? (
             <p className="order-operations__notice">
@@ -1692,9 +1704,27 @@ const storefrontEditorDefaults: StorefrontSettings = {
   heroHeight: "balanced",
   featuredEyebrow: "Selecao inicial",
   featuredTitle: "Produtos em destaque",
+  featuredDescription: "Uma selecao preparada para facilitar sua escolha.",
   featuredLinkLabel: "Ver todos",
   featuredAddButtonLabel: "Adicionar",
   featuredAddedButtonLabel: "Adicionado",
+  categoryEyebrow: "Explore",
+  categoryTitle: "Compre por categoria",
+  categoryDescription: "Encontre rapidamente o que combina com o seu momento.",
+  categoryLinkLabel: "Ver catalogo completo",
+  categoryLayout: "rail",
+  categoryLimit: 6,
+  commerceEyebrow: "Compre do seu jeito",
+  commerceTitle: "Atendimento proximo ou pagamento online",
+  commerceDescription:
+    "Escolha a experiencia que faz mais sentido para voce, com a mesma seguranca em toda a jornada.",
+  commerceWhatsappTitle: "Comprar pelo WhatsApp",
+  commerceWhatsappDescription:
+    "Finalize com atendimento humano para tirar duvidas e combinar os detalhes diretamente com a loja.",
+  commerceOnlineTitle: "Pagar online",
+  commerceOnlineDescription:
+    "Conclua o pagamento com Pix ou cartao e continue o atendimento pelo WhatsApp quando necessario.",
+  commerceCtaLabel: "Explorar produtos",
   catalogEyebrow: "Loja",
   catalogTitle: "Catalogo",
   catalogDescription:
@@ -1729,6 +1759,11 @@ const storefrontEditorDefaults: StorefrontSettings = {
   homeLayout: "editorial",
   productCardStyle: "boutique",
   imageFit: "contain",
+  homeProductImageRatio: "landscape",
+  homeProductDescriptionMode: "full",
+  homeProductColumnsDesktop: 4,
+  homeProductColumnsTablet: 2,
+  homeProductColumnsMobile: 2,
   homeSections: defaultHomeSections.map((section) => ({ ...section })),
   homeSectionSpacing: "balanced",
   homeTransitionPreset: "editorial",
@@ -1746,7 +1781,13 @@ const storefrontEditorDefaults: StorefrontSettings = {
     navigation: { ...defaultStorefrontTextStyles.navigation },
     featuredEyebrow: { ...defaultStorefrontTextStyles.featuredEyebrow },
     featuredTitle: { ...defaultStorefrontTextStyles.featuredTitle },
+    categoryEyebrow: { ...defaultStorefrontTextStyles.categoryEyebrow },
+    categoryTitle: { ...defaultStorefrontTextStyles.categoryTitle },
+    categoryBody: { ...defaultStorefrontTextStyles.categoryBody },
     productCardTitle: { ...defaultStorefrontTextStyles.productCardTitle },
+    commerceEyebrow: { ...defaultStorefrontTextStyles.commerceEyebrow },
+    commerceTitle: { ...defaultStorefrontTextStyles.commerceTitle },
+    commerceBody: { ...defaultStorefrontTextStyles.commerceBody },
     reviewsEyebrow: { ...defaultStorefrontTextStyles.reviewsEyebrow },
     reviewsTitle: { ...defaultStorefrontTextStyles.reviewsTitle },
     reviewsBody: { ...defaultStorefrontTextStyles.reviewsBody },
@@ -1819,10 +1860,42 @@ function normalizeStorefrontEditorInitial(
   const textStyles = legacy.homeTextStyles;
   const catalogTextStyles = legacy.catalogTextStyles;
   const legacyHeaderFont = legacy.headerFontFamily ?? "modern";
+  const configuredHomeSections = legacy.homeSections ?? [];
+  const knownHomeSectionIds = new Set(
+    defaultHomeSections.map((section) => section.id),
+  );
+  const seenHomeSectionIds = new Set<string>();
+  const homeSections: StorefrontSettings["homeSections"] =
+    configuredHomeSections.filter((section) => {
+      if (
+        !knownHomeSectionIds.has(section.id) ||
+        seenHomeSectionIds.has(section.id)
+      ) {
+        return false;
+      }
+      seenHomeSectionIds.add(section.id);
+      return true;
+    });
+  for (const section of defaultHomeSections) {
+    if (seenHomeSectionIds.has(section.id)) continue;
+    const nextSection = { ...section };
+    const featuredIndex = homeSections.findIndex(
+      (current) => current.id === "featured",
+    );
+    if (section.id === "categories" && featuredIndex >= 0) {
+      homeSections.splice(featuredIndex, 0, nextSection);
+    } else if (section.id === "commerce" && featuredIndex >= 0) {
+      homeSections.splice(featuredIndex + 1, 0, nextSection);
+    } else {
+      homeSections.push(nextSection);
+    }
+    seenHomeSectionIds.add(section.id);
+  }
 
   return {
     ...storefrontEditorDefaults,
     ...legacy,
+    homeSections,
     headerFontFamily:
       legacyHeaderFont === "inherit" ||
       legacyHeaderFont === "display" ||
@@ -1869,9 +1942,33 @@ function normalizeStorefrontEditorInitial(
         ...storefrontEditorDefaults.homeTextStyles.featuredTitle,
         ...(textStyles?.featuredTitle ?? {}),
       },
+      categoryEyebrow: {
+        ...storefrontEditorDefaults.homeTextStyles.categoryEyebrow,
+        ...(textStyles?.categoryEyebrow ?? {}),
+      },
+      categoryTitle: {
+        ...storefrontEditorDefaults.homeTextStyles.categoryTitle,
+        ...(textStyles?.categoryTitle ?? {}),
+      },
+      categoryBody: {
+        ...storefrontEditorDefaults.homeTextStyles.categoryBody,
+        ...(textStyles?.categoryBody ?? {}),
+      },
       productCardTitle: {
         ...storefrontEditorDefaults.homeTextStyles.productCardTitle,
         ...(textStyles?.productCardTitle ?? {}),
+      },
+      commerceEyebrow: {
+        ...storefrontEditorDefaults.homeTextStyles.commerceEyebrow,
+        ...(textStyles?.commerceEyebrow ?? {}),
+      },
+      commerceTitle: {
+        ...storefrontEditorDefaults.homeTextStyles.commerceTitle,
+        ...(textStyles?.commerceTitle ?? {}),
+      },
+      commerceBody: {
+        ...storefrontEditorDefaults.homeTextStyles.commerceBody,
+        ...(textStyles?.commerceBody ?? {}),
       },
       reviewsEyebrow: {
         ...storefrontEditorDefaults.homeTextStyles.reviewsEyebrow,
@@ -2940,6 +3037,7 @@ type AppearanceTab =
   | "header"
   | "content"
   | "composition"
+  | "sales"
   | "catalog"
   | "reviews"
   | "footer"
@@ -3067,7 +3165,7 @@ function StorefrontLivePreview({
   const previewOrigin = previewUrl ? new URL(previewUrl).origin : null;
   const embeddedPreview = Boolean(
     previewUrl &&
-      shouldEmbedStorefrontPreview(previewUrl, window.location.href),
+    shouldEmbedStorefrontPreview(previewUrl, window.location.href),
   );
 
   useEffect(() => {
@@ -3188,9 +3286,7 @@ function StorefrontLivePreview({
     setStatus("connecting");
     const timeout = window.setTimeout(() => {
       setStatus((current) =>
-        current === "synced" || current === "invalid"
-          ? current
-          : "unavailable",
+        current === "synced" || current === "invalid" ? current : "unavailable",
       );
     }, 20_000);
     return () => window.clearTimeout(timeout);
@@ -3283,7 +3379,7 @@ function StorefrontLivePreview({
               ? previewUrl
                 ? "Nao foi possivel carregar a pagina publica"
                 : "URL publica indisponivel"
-            : "Atualizando preview"}
+              : "Atualizando preview"}
       </div>
       <div className="storefront-live-preview__location-bar">
         <div
@@ -3359,7 +3455,9 @@ function StorefrontLivePreview({
                 referrerPolicy="same-origin"
                 sandbox="allow-same-origin allow-scripts"
                 src={embeddedPreview ? undefined : previewUrl}
-                srcDoc={embeddedPreview ? previewDocument ?? undefined : undefined}
+                srcDoc={
+                  embeddedPreview ? (previewDocument ?? undefined) : undefined
+                }
                 title={`Preview da Home em ${configuration.label}`}
                 width={configuration.width}
                 onLoad={() => {
@@ -3378,13 +3476,19 @@ function StorefrontLivePreview({
                 }}
               />
             ) : previewDocumentState === "loading" ? (
-              <div className="storefront-live-preview__unavailable" role="status">
+              <div
+                className="storefront-live-preview__unavailable"
+                role="status"
+              >
                 <RefreshCw aria-hidden="true" size={28} />
                 <strong>Preparando preview</strong>
                 <span>Carregando a pagina publica desta loja.</span>
               </div>
             ) : (
-              <div className="storefront-live-preview__unavailable" role="alert">
+              <div
+                className="storefront-live-preview__unavailable"
+                role="alert"
+              >
                 <EyeOff aria-hidden="true" size={28} />
                 <strong>Preview indisponivel</strong>
                 <span>
@@ -3437,6 +3541,15 @@ const appearanceTabs = [
       "Organize cores, espacamento, cards e secoes. Aqui fica o desenho geral da vitrine sem mexer nos dados de produto.",
     level: "Essencial",
     icon: Palette,
+  },
+  {
+    id: "sales",
+    label: "Vendas",
+    description: "Categorias, produtos e formas de compra",
+    guidance:
+      "Transforme a Home em uma experiencia de compra completa. Edite categorias, apresentacao dos produtos e os dois caminhos de compra sem alterar o checkout.",
+    level: "Essencial",
+    icon: ShoppingBag,
   },
   {
     id: "catalog",
@@ -3538,7 +3651,6 @@ const appearanceTabSettingKeys = {
   ],
   composition: [
     "homeLayout",
-    "productCardStyle",
     "imageFit",
     "homeSections",
     "homeSectionSpacing",
@@ -3559,6 +3671,29 @@ const appearanceTabSettingKeys = {
     "homeShadowColor",
     "homeTransitionStartColor",
     "homeTransitionEndColor",
+  ],
+  sales: [
+    "featuredDescription",
+    "productCardStyle",
+    "categoryEyebrow",
+    "categoryTitle",
+    "categoryDescription",
+    "categoryLinkLabel",
+    "categoryLayout",
+    "categoryLimit",
+    "commerceEyebrow",
+    "commerceTitle",
+    "commerceDescription",
+    "commerceWhatsappTitle",
+    "commerceWhatsappDescription",
+    "commerceOnlineTitle",
+    "commerceOnlineDescription",
+    "commerceCtaLabel",
+    "homeProductImageRatio",
+    "homeProductDescriptionMode",
+    "homeProductColumnsDesktop",
+    "homeProductColumnsTablet",
+    "homeProductColumnsMobile",
   ],
   catalog: [
     "catalogEyebrow",
@@ -3627,7 +3762,9 @@ const homeSectionLabels: Record<
 > = {
   manifesto: "Manifesto editorial",
   navigation: "Atalhos da loja",
+  categories: "Navegacao por categorias",
   featured: "Produtos em destaque",
+  commerce: "Formas de compra",
 };
 
 const motionBlockLabels: Record<
@@ -3642,6 +3779,10 @@ const motionBlockLabels: Record<
     title: "Atalhos da loja",
     description: "Links de catalogo, pedidos, conta e suporte.",
   },
+  categories: {
+    title: "Navegacao por categorias",
+    description: "Cabecalho e entrada das categorias da loja.",
+  },
   featuredHeading: {
     title: "Cabecalho dos destaques",
     description: "Etiqueta, titulo e link da selecao de produtos.",
@@ -3649,6 +3790,10 @@ const motionBlockLabels: Record<
   productCards: {
     title: "Cards de produtos",
     description: "Entrada coordenada dos itens em destaque.",
+  },
+  commerce: {
+    title: "Formas de compra",
+    description: "Apresentacao do WhatsApp e do pagamento online.",
   },
   reviews: {
     title: "Avaliacoes",
@@ -3769,11 +3914,20 @@ function StorefrontEditor({
             ] as const)
           : activeTab === "composition"
             ? (["navigation", "productCardTitle"] as const)
-            : activeTab === "reviews"
-              ? (["reviewsEyebrow", "reviewsTitle", "reviewsBody"] as const)
-              : activeTab === "footer"
-                ? (["footerSlogan"] as const)
-                : [];
+            : activeTab === "sales"
+              ? ([
+                  "categoryEyebrow",
+                  "categoryTitle",
+                  "categoryBody",
+                  "commerceEyebrow",
+                  "commerceTitle",
+                  "commerceBody",
+                ] as const)
+              : activeTab === "reviews"
+                ? (["reviewsEyebrow", "reviewsTitle", "reviewsBody"] as const)
+                : activeTab === "footer"
+                  ? (["footerSlogan"] as const)
+                  : [];
       if (textStyleKeys.length) {
         restored.homeTextStyles = { ...current.homeTextStyles };
         for (const key of textStyleKeys) {
@@ -4076,8 +4230,8 @@ function StorefrontEditor({
           </div>
           <p className="editor-section__hint">
             Os textos usam exatamente a cor escolhida. No modo automatico, os
-            botoes continuam protegendo o contraste para manter boa leitura;
-            em cores manuais, revise a legibilidade no preview.
+            botoes continuam protegendo o contraste para manter boa leitura; em
+            cores manuais, revise a legibilidade no preview.
           </p>
           <div className="editor-form__grid color-controls">
             <HexColorField
@@ -4977,6 +5131,7 @@ function StorefrontEditor({
               <option value="minimal">Minimalista</option>
               <option value="boutique">Boutique</option>
               <option value="editorial">Editorial</option>
+              <option value="ecommerce">E-commerce</option>
             </SelectField>
             <SelectField
               label="Enquadramento das imagens do catalogo"
@@ -5409,21 +5564,6 @@ function StorefrontEditor({
               <option value="airy">Arejado</option>
             </SelectField>
             <SelectField
-              label="Estilo dos cards"
-              value={form.productCardStyle}
-              onChange={(event) =>
-                setForm({
-                  ...form,
-                  productCardStyle: event.target
-                    .value as StorefrontSettings["productCardStyle"],
-                })
-              }
-            >
-              <option value="minimal">Minimalista</option>
-              <option value="boutique">Boutique</option>
-              <option value="editorial">Editorial</option>
-            </SelectField>
-            <SelectField
               label="Enquadramento das imagens"
               value={form.imageFit}
               onChange={(event) =>
@@ -5606,6 +5746,338 @@ function StorefrontEditor({
             Quando desativado, os atalhos continuam visiveis em tablets e
             desktops, mas nao ocupam espaco na Home em celulares.
           </p>
+        </section>
+        <section
+          aria-labelledby="appearance-tab-sales"
+          className="editor-section"
+          hidden={activeTab !== "sales"}
+          id="appearance-panel-sales"
+          role="tabpanel"
+        >
+          <div className="editor-section__title">
+            <ShoppingBag size={18} />
+            <h3>Navegacao por categorias</h3>
+          </div>
+          <p className="editor-section__hint">
+            As categorias cadastradas nos produtos aparecem automaticamente.
+            Aqui voce controla apenas a apresentacao dessa navegacao.
+          </p>
+          <div className="editor-form__grid">
+            <TextField
+              label="Etiqueta da secao"
+              maxLength={80}
+              placeholder="Opcional"
+              value={form.categoryEyebrow}
+              onChange={(event) =>
+                setForm({ ...form, categoryEyebrow: event.target.value })
+              }
+            />
+            <TextField
+              label="Titulo da secao"
+              maxLength={100}
+              placeholder="Opcional"
+              value={form.categoryTitle}
+              onChange={(event) =>
+                setForm({ ...form, categoryTitle: event.target.value })
+              }
+            />
+            <TextAreaField
+              className="editor-form__wide"
+              label="Descricao da secao"
+              maxLength={220}
+              placeholder="Opcional"
+              rows={3}
+              value={form.categoryDescription}
+              onChange={(event) =>
+                setForm({ ...form, categoryDescription: event.target.value })
+              }
+            />
+            <TextField
+              label="Texto do link para o catalogo"
+              maxLength={60}
+              required
+              value={form.categoryLinkLabel}
+              onChange={(event) =>
+                setForm({ ...form, categoryLinkLabel: event.target.value })
+              }
+            />
+            <SelectField
+              label="Organizacao das categorias"
+              value={form.categoryLayout}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  categoryLayout: event.target
+                    .value as StorefrontSettings["categoryLayout"],
+                })
+              }
+            >
+              <option value="rail">Faixa horizontal</option>
+              <option value="grid">Grade organizada</option>
+            </SelectField>
+            <FontSizeControl
+              label="Quantidade de categorias"
+              max={8}
+              min={3}
+              suffix=""
+              value={form.categoryLimit}
+              onChange={(categoryLimit) => setForm({ ...form, categoryLimit })}
+            />
+          </div>
+        </section>
+        <section className="editor-section" hidden={activeTab !== "sales"}>
+          <div className="editor-section__title">
+            <PackagePlus size={18} />
+            <h3>Vitrine de produtos</h3>
+          </div>
+          <p className="editor-section__hint">
+            Ajuste a densidade da Home sem alterar a grade da pagina de
+            Catalogo. Produtos marcados como destaque continuam ilimitados.
+          </p>
+          <div className="editor-form__grid">
+            <SelectField
+              label="Estilo visual dos cards"
+              value={form.productCardStyle}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  productCardStyle: event.target
+                    .value as StorefrontSettings["productCardStyle"],
+                })
+              }
+            >
+              <option value="boutique">Atual - Boutique</option>
+              <option value="ecommerce">E-commerce</option>
+              <option value="minimal">Minimalista</option>
+              <option value="editorial">Editorial</option>
+            </SelectField>
+            <TextAreaField
+              className="editor-form__wide"
+              label="Descricao dos produtos em destaque"
+              maxLength={220}
+              placeholder="Opcional"
+              rows={3}
+              value={form.featuredDescription}
+              onChange={(event) =>
+                setForm({ ...form, featuredDescription: event.target.value })
+              }
+            />
+            <SelectField
+              label="Proporcao das imagens"
+              value={form.homeProductImageRatio}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  homeProductImageRatio: event.target
+                    .value as StorefrontSettings["homeProductImageRatio"],
+                })
+              }
+            >
+              <option value="landscape">Horizontal</option>
+              <option value="square">Quadrada</option>
+            </SelectField>
+            <SelectField
+              label="Descricao nos cards"
+              value={form.homeProductDescriptionMode}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  homeProductDescriptionMode: event.target
+                    .value as StorefrontSettings["homeProductDescriptionMode"],
+                })
+              }
+            >
+              <option value="full">Completa, ate 200 caracteres</option>
+              <option value="compact">Resumo em ate 3 linhas</option>
+            </SelectField>
+            <SelectField
+              label="Colunas no desktop"
+              value={String(form.homeProductColumnsDesktop)}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  homeProductColumnsDesktop: Number(event.target.value),
+                })
+              }
+            >
+              <option value="3">3 produtos</option>
+              <option value="4">4 produtos</option>
+            </SelectField>
+            <SelectField
+              label="Colunas no tablet"
+              value={String(form.homeProductColumnsTablet)}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  homeProductColumnsTablet: Number(event.target.value),
+                })
+              }
+            >
+              <option value="2">2 produtos</option>
+              <option value="3">3 produtos</option>
+            </SelectField>
+            <SelectField
+              label="Colunas no celular"
+              value={String(form.homeProductColumnsMobile)}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  homeProductColumnsMobile: Number(event.target.value),
+                })
+              }
+            >
+              <option value="1">1 produto</option>
+              <option value="2">2 produtos</option>
+            </SelectField>
+          </div>
+        </section>
+        <section className="editor-section" hidden={activeTab !== "sales"}>
+          <div className="editor-section__title">
+            <MessageCircle size={18} />
+            <h3>Formas de compra</h3>
+          </div>
+          <p className="editor-section__hint">
+            Estes textos apresentam os dois caminhos existentes. A logica do
+            WhatsApp, Pix e Mercado Pago permanece protegida pelo sistema.
+          </p>
+          <div className="editor-form__grid">
+            <TextField
+              label="Etiqueta da secao"
+              maxLength={80}
+              placeholder="Opcional"
+              value={form.commerceEyebrow}
+              onChange={(event) =>
+                setForm({ ...form, commerceEyebrow: event.target.value })
+              }
+            />
+            <TextField
+              label="Titulo da secao"
+              maxLength={120}
+              placeholder="Opcional"
+              value={form.commerceTitle}
+              onChange={(event) =>
+                setForm({ ...form, commerceTitle: event.target.value })
+              }
+            />
+            <TextAreaField
+              className="editor-form__wide"
+              label="Descricao da secao"
+              maxLength={280}
+              placeholder="Opcional"
+              rows={3}
+              value={form.commerceDescription}
+              onChange={(event) =>
+                setForm({ ...form, commerceDescription: event.target.value })
+              }
+            />
+            <TextField
+              label="Titulo da compra pelo WhatsApp"
+              maxLength={80}
+              required
+              value={form.commerceWhatsappTitle}
+              onChange={(event) =>
+                setForm({ ...form, commerceWhatsappTitle: event.target.value })
+              }
+            />
+            <TextField
+              label="Titulo do pagamento online"
+              maxLength={80}
+              required
+              value={form.commerceOnlineTitle}
+              onChange={(event) =>
+                setForm({ ...form, commerceOnlineTitle: event.target.value })
+              }
+            />
+            <TextAreaField
+              label="Descricao da compra pelo WhatsApp"
+              maxLength={180}
+              rows={4}
+              value={form.commerceWhatsappDescription}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  commerceWhatsappDescription: event.target.value,
+                })
+              }
+            />
+            <TextAreaField
+              label="Descricao do pagamento online"
+              maxLength={180}
+              rows={4}
+              value={form.commerceOnlineDescription}
+              onChange={(event) =>
+                setForm({
+                  ...form,
+                  commerceOnlineDescription: event.target.value,
+                })
+              }
+            />
+            <TextField
+              label="Texto do botao"
+              maxLength={60}
+              required
+              value={form.commerceCtaLabel}
+              onChange={(event) =>
+                setForm({ ...form, commerceCtaLabel: event.target.value })
+              }
+            />
+          </div>
+        </section>
+        <section className="editor-section" hidden={activeTab !== "sales"}>
+          <div className="editor-section__title">
+            <Type size={18} />
+            <h3>Tipografia das secoes comerciais</h3>
+          </div>
+          <div className="text-style-group">
+            <TextStyleControls
+              description="Chamada curta acima da navegacao por categorias."
+              fallbackColor={form.accentColor}
+              fontSizeRange={{ min: 10, max: 22 }}
+              title="Etiqueta das categorias"
+              value={form.homeTextStyles.categoryEyebrow}
+              onChange={(value) => updateTextStyle("categoryEyebrow", value)}
+            />
+            <TextStyleControls
+              description="Titulo principal da navegacao por categorias."
+              fallbackColor={form.primaryColor}
+              fontSizeRange={{ min: 24, max: 64 }}
+              title="Titulo das categorias"
+              value={form.homeTextStyles.categoryTitle}
+              onChange={(value) => updateTextStyle("categoryTitle", value)}
+            />
+            <TextStyleControls
+              description="Texto de apoio da navegacao por categorias."
+              fallbackColor={form.homeSecondaryTextColor}
+              fontSizeRange={{ min: 12, max: 24 }}
+              title="Descricao das categorias"
+              value={form.homeTextStyles.categoryBody}
+              onChange={(value) => updateTextStyle("categoryBody", value)}
+            />
+            <TextStyleControls
+              description="Chamada curta acima das formas de compra."
+              fallbackColor={form.accentColor}
+              fontSizeRange={{ min: 10, max: 22 }}
+              title="Etiqueta das formas de compra"
+              value={form.homeTextStyles.commerceEyebrow}
+              onChange={(value) => updateTextStyle("commerceEyebrow", value)}
+            />
+            <TextStyleControls
+              description="Titulo principal das formas de compra."
+              fallbackColor={form.primaryColor}
+              fontSizeRange={{ min: 24, max: 68 }}
+              title="Titulo das formas de compra"
+              value={form.homeTextStyles.commerceTitle}
+              onChange={(value) => updateTextStyle("commerceTitle", value)}
+            />
+            <TextStyleControls
+              description="Textos explicativos da secao e dos dois fluxos."
+              fallbackColor={form.homeSecondaryTextColor}
+              fontSizeRange={{ min: 12, max: 24 }}
+              title="Descricoes das formas de compra"
+              value={form.homeTextStyles.commerceBody}
+              onChange={(value) => updateTextStyle("commerceBody", value)}
+            />
+          </div>
         </section>
         <section
           aria-labelledby="appearance-tab-motion"
@@ -6134,6 +6606,28 @@ function StorefrontEditor({
               form.homeTextStyles.featuredTitle.fontFamily,
               "var(--font-display)",
             ),
+            "--preview-category-eyebrow-color":
+              form.homeTextStyles.categoryEyebrow.color || form.accentColor,
+            "--preview-category-title-color":
+              form.homeTextStyles.categoryTitle.color || form.primaryColor,
+            "--preview-category-title-font": textFontCssValue(
+              form.homeTextStyles.categoryTitle.fontFamily,
+              "var(--font-display)",
+            ),
+            "--preview-category-body-color":
+              form.homeTextStyles.categoryBody.color ||
+              form.homeSecondaryTextColor,
+            "--preview-commerce-eyebrow-color":
+              form.homeTextStyles.commerceEyebrow.color || form.accentColor,
+            "--preview-commerce-title-color":
+              form.homeTextStyles.commerceTitle.color || form.primaryColor,
+            "--preview-commerce-title-font": textFontCssValue(
+              form.homeTextStyles.commerceTitle.fontFamily,
+              "var(--font-display)",
+            ),
+            "--preview-commerce-body-color":
+              form.homeTextStyles.commerceBody.color ||
+              form.homeSecondaryTextColor,
             "--preview-card-title-color":
               form.homeTextStyles.productCardTitle.color || form.primaryColor,
             "--preview-card-title-font-size": `${form.homeTextStyles.productCardTitle.fontSize}px`,
@@ -6176,9 +6670,9 @@ function StorefrontEditor({
           } as CSSProperties
         }
       >
-        {(["composition", "header", "catalog"] as AppearanceTab[]).includes(
-          activeTab,
-        ) ? (
+        {(
+          ["composition", "sales", "header", "catalog"] as AppearanceTab[]
+        ).includes(activeTab) ? (
           <StorefrontLivePreview
             device={previewDevice}
             focusLocation={activeTab === "catalog" ? "catalog" : "top"}
@@ -6314,6 +6808,65 @@ function StorefrontEditor({
                         </div>
                       );
                     }
+                    if (section.id === "categories") {
+                      return (
+                        <div
+                          className="appearance-preview__categories"
+                          data-layout={form.categoryLayout}
+                          key={section.id}
+                        >
+                          {form.categoryEyebrow.trim() ? (
+                            <p>{form.categoryEyebrow}</p>
+                          ) : null}
+                          {form.categoryTitle.trim() ? (
+                            <h3>{form.categoryTitle}</h3>
+                          ) : null}
+                          {form.categoryDescription.trim() ? (
+                            <span>{form.categoryDescription}</span>
+                          ) : null}
+                          <div>
+                            {[
+                              "Categoria um",
+                              "Categoria dois",
+                              "Categoria tres",
+                            ]
+                              .slice(0, Math.min(3, form.categoryLimit))
+                              .map((label, index) => (
+                                <small key={label}>
+                                  <b>{String(index + 1).padStart(2, "0")}</b>
+                                  {label}
+                                </small>
+                              ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    if (section.id === "commerce") {
+                      return (
+                        <div
+                          className="appearance-preview__commerce"
+                          key={section.id}
+                        >
+                          <div>
+                            {form.commerceEyebrow.trim() ? (
+                              <p>{form.commerceEyebrow}</p>
+                            ) : null}
+                            {form.commerceTitle.trim() ? (
+                              <h3>{form.commerceTitle}</h3>
+                            ) : null}
+                            {form.commerceDescription.trim() ? (
+                              <span>{form.commerceDescription}</span>
+                            ) : null}
+                          </div>
+                          <div>
+                            <strong>{form.commerceWhatsappTitle}</strong>
+                            <small>{form.commerceWhatsappDescription}</small>
+                            <strong>{form.commerceOnlineTitle}</strong>
+                            <small>{form.commerceOnlineDescription}</small>
+                          </div>
+                        </div>
+                      );
+                    }
                     return (
                       <div
                         className="appearance-preview__section"
@@ -6354,7 +6907,10 @@ function StorefrontEditor({
                           <div
                             className={`appearance-preview__card-media appearance-preview__card-media--${form.imageFit}`}
                           >
-                            <img src={adminMediaUrl(form.heroImageUrl)} alt="" />
+                            <img
+                              src={adminMediaUrl(form.heroImageUrl)}
+                              alt=""
+                            />
                           </div>
                           <div>
                             <Badge>Categoria</Badge>
@@ -6593,7 +7149,9 @@ function RevenueByChannelChart({ overview }: { overview?: AdminOverview }) {
       ].map(([label, value]) => (
         <span
           key={label}
-          style={{ height: `${Math.max(16, (Number(value) / maximum) * 100)}%` }}
+          style={{
+            height: `${Math.max(16, (Number(value) / maximum) * 100)}%`,
+          }}
           title={`${label}: ${formatMoney(Number(value))}`}
         >
           <b>{label}</b>
@@ -6632,48 +7190,101 @@ function OrderHistory({
       {groupOrdersByMonthAndDay(orders).map(([month, days], monthIndex) => {
         const monthOrders = [...days.values()].flat();
         return (
-          <details className="order-history__month" key={month} open={monthIndex === 0}>
+          <details
+            className="order-history__month"
+            key={month}
+            open={monthIndex === 0}
+          >
             <summary>
               <span>
                 <strong>{formatMonthKey(month)}</strong>
-                <small>{monthOrders.length} {monthOrders.length === 1 ? "pedido" : "pedidos"}</small>
+                <small>
+                  {monthOrders.length}{" "}
+                  {monthOrders.length === 1 ? "pedido" : "pedidos"}
+                </small>
               </span>
-              <b>{formatMoney(monthOrders.reduce((sum, order) => sum + order.totalInCents, 0))}</b>
+              <b>
+                {formatMoney(
+                  monthOrders.reduce(
+                    (sum, order) => sum + order.totalInCents,
+                    0,
+                  ),
+                )}
+              </b>
             </summary>
             <div className="order-history__days">
               {[...days.entries()]
                 .sort(([left], [right]) => right.localeCompare(left))
                 .map(([day, dayOrders], dayIndex) => (
-                  <details className="order-history__day" key={day} open={dayIndex === 0}>
+                  <details
+                    className="order-history__day"
+                    key={day}
+                    open={dayIndex === 0}
+                  >
                     <summary>
                       <span>{formatDayKey(day)}</span>
-                      <small>{dayOrders.length} {dayOrders.length === 1 ? "pedido" : "pedidos"}</small>
+                      <small>
+                        {dayOrders.length}{" "}
+                        {dayOrders.length === 1 ? "pedido" : "pedidos"}
+                      </small>
                     </summary>
                     <DataTable
-                      columns={["Referencia", "Cliente", "Status", "Canal", "Produtos", "Total", "Receita", "Acoes"]}
+                      columns={[
+                        "Referencia",
+                        "Cliente",
+                        "Status",
+                        "Canal",
+                        "Produtos",
+                        "Total",
+                        "Receita",
+                        "Acoes",
+                      ]}
                       rows={dayOrders.map((order) => [
                         order.publicReference,
-                        order.customerEmail ? maskEmail(order.customerEmail) : (order.customerName ?? "Compra assistida"),
+                        order.customerEmail
+                          ? maskEmail(order.customerEmail)
+                          : (order.customerName ?? "Compra assistida"),
                         order.status,
                         paymentMethodLabel(order),
-                        order.items.reduce((sum, item) => sum + item.quantity, 0),
+                        order.items.reduce(
+                          (sum, item) => sum + item.quantity,
+                          0,
+                        ),
                         formatMoney(order.totalInCents),
-                        order.revenueConfirmedAt ? `Confirmada em ${formatDate(order.revenueConfirmedAt)}` : "Nao confirmada",
-                        <div className="order-history__actions" key={order.publicReference}>
+                        order.revenueConfirmedAt
+                          ? `Confirmada em ${formatDate(order.revenueConfirmedAt)}`
+                          : "Nao confirmada",
+                        <div
+                          className="order-history__actions"
+                          key={order.publicReference}
+                        >
                           {order.salesChannel === "online" && onManage ? (
-                            <IconButton label={`Gerenciar entrega de ${order.publicReference}`} onClick={() => onManage(order)}>
+                            <IconButton
+                              label={`Gerenciar entrega de ${order.publicReference}`}
+                              onClick={() => onManage(order)}
+                            >
                               <Edit3 size={16} />
                             </IconButton>
                           ) : null}
-                          {order.salesChannel === "whatsapp" && onToggleWhatsappRevenue ? (
+                          {order.salesChannel === "whatsapp" &&
+                          onToggleWhatsappRevenue ? (
                             <Button
-                              loading={revenuePendingReference === order.publicReference}
+                              loading={
+                                revenuePendingReference ===
+                                order.publicReference
+                              }
                               type="button"
                               variant="secondary"
                               onClick={() => onToggleWhatsappRevenue(order)}
                             >
-                              {order.revenueConfirmedAt ? <RotateCcw size={16} /> : <CheckCircle2 size={16} />}
-                              {order.revenueConfirmedAt ? "Desfazer receita" : "Confirmar venda"}
+                              {order.revenueConfirmedAt ? (
+                                <RotateCcw size={16} />
+                              ) : (
+                                <CheckCircle2 size={16} />
+                              )}
+                              {order.revenueConfirmedAt
+                                ? "Desfazer receita"
+                                : "Confirmar venda"}
                             </Button>
                           ) : null}
                         </div>,
@@ -6703,19 +7314,36 @@ function HistoryArchiveConfirmation({
   onConfirm: () => void;
 }) {
   return (
-    <section className="panel delete-confirmation" aria-labelledby="history-confirmation-title">
+    <section
+      className="panel delete-confirmation"
+      aria-labelledby="history-confirmation-title"
+    >
       <div>
         <p className="panel-eyebrow">Confirmacao</p>
         <h2 id="history-confirmation-title">
           {archived ? "Restaurar historico?" : "Arquivar historico atual?"}
         </h2>
         <p>
-          {count} {count === 1 ? "pedido sera atualizado" : "pedidos serao atualizados"}. Nenhum registro financeiro sera apagado.
+          {count}{" "}
+          {count === 1 ? "pedido sera atualizado" : "pedidos serao atualizados"}
+          . Nenhum registro financeiro sera apagado.
         </p>
       </div>
       <div className="delete-confirmation__actions">
-        <Button disabled={pending} type="button" variant="secondary" onClick={onCancel}>Cancelar</Button>
-        <Button loading={pending} type="button" variant={archived ? "primary" : "danger"} onClick={onConfirm}>
+        <Button
+          disabled={pending}
+          type="button"
+          variant="secondary"
+          onClick={onCancel}
+        >
+          Cancelar
+        </Button>
+        <Button
+          loading={pending}
+          type="button"
+          variant={archived ? "primary" : "danger"}
+          onClick={onConfirm}
+        >
           {archived ? <RotateCcw size={16} /> : <Archive size={16} />}
           Confirmar
         </Button>
@@ -6758,7 +7386,9 @@ function Payments() {
     mutationFn: updatePixSettings,
     onSuccess(data) {
       setForm(data);
-      setNotice(data.enabled ? "Pix ativado e salvo." : "Pix desativado e salvo.");
+      setNotice(
+        data.enabled ? "Pix ativado e salvo." : "Pix desativado e salvo.",
+      );
       void queryClient.invalidateQueries({ queryKey: ["admin-pix-settings"] });
     },
   });
@@ -6815,7 +7445,9 @@ function Payments() {
         <EmptyState
           title="Falha ao carregar o Pix"
           body="Confirme a conexao com a API e tente novamente."
-          action={<Button onClick={() => settings.refetch()}>Tentar novamente</Button>}
+          action={
+            <Button onClick={() => settings.refetch()}>Tentar novamente</Button>
+          }
         />
       ) : null}
       {form ? (
@@ -6853,7 +7485,9 @@ function Payments() {
               maxLength={77}
               required={form.enabled}
               value={form.key}
-              onChange={(event) => setForm({ ...form, key: event.target.value })}
+              onChange={(event) =>
+                setForm({ ...form, key: event.target.value })
+              }
             />
             <TextField
               label="Nome do recebedor"
@@ -6879,7 +7513,9 @@ function Payments() {
             dados sao normalizados para o padrao BR Code ao gerar o pedido.
           </p>
           {save.isError ? (
-            <p className="error-text" role="alert">{save.error.message}</p>
+            <p className="error-text" role="alert">
+              {save.error.message}
+            </p>
           ) : null}
           <div className="pix-settings__actions">
             <Button loading={save.isPending} type="submit">
@@ -6903,7 +7539,9 @@ function Payments() {
           <QrCode aria-hidden="true" size={24} />
         </div>
         {orders.isError ? (
-          <p className="error-text" role="alert">Nao foi possivel carregar os pedidos.</p>
+          <p className="error-text" role="alert">
+            Nao foi possivel carregar os pedidos.
+          </p>
         ) : null}
         {orders.isLoading ? <Skeleton className="table-skeleton" /> : null}
         {pendingDecision ? (
@@ -6915,7 +7553,8 @@ function Payments() {
                   : "Rejeitar este pagamento?"}
               </strong>
               <span>
-                {pendingDecision.order.publicReference} - {formatMoney(pendingDecision.order.totalInCents)}
+                {pendingDecision.order.publicReference} -{" "}
+                {formatMoney(pendingDecision.order.totalInCents)}
               </span>
             </div>
             <div>
@@ -6930,7 +7569,9 @@ function Payments() {
               <Button
                 loading={review.isPending}
                 type="button"
-                variant={pendingDecision.status === "approved" ? "primary" : "danger"}
+                variant={
+                  pendingDecision.status === "approved" ? "primary" : "danger"
+                }
                 onClick={() =>
                   review.mutate({
                     reference: pendingDecision.order.publicReference,
@@ -6938,13 +7579,17 @@ function Payments() {
                   })
                 }
               >
-                {pendingDecision.status === "approved" ? "Confirmar Pix" : "Rejeitar Pix"}
+                {pendingDecision.status === "approved"
+                  ? "Confirmar Pix"
+                  : "Rejeitar Pix"}
               </Button>
             </div>
           </div>
         ) : null}
         {review.isError ? (
-          <p className="error-text" role="alert">{review.error.message}</p>
+          <p className="error-text" role="alert">
+            {review.error.message}
+          </p>
         ) : null}
         {!orders.isLoading && !pixOrders.length ? (
           <EmptyState
@@ -6954,10 +7599,19 @@ function Payments() {
         ) : null}
         {pixOrders.length ? (
           <DataTable
-            columns={["Pedido", "Cliente", "Criado em", "Valor", "Status", "Acoes"]}
+            columns={[
+              "Pedido",
+              "Cliente",
+              "Criado em",
+              "Valor",
+              "Status",
+              "Acoes",
+            ]}
             rows={pixOrders.map((order) => [
               order.publicReference,
-              order.customerEmail ? maskEmail(order.customerEmail) : (order.customerName ?? "Cliente"),
+              order.customerEmail
+                ? maskEmail(order.customerEmail)
+                : (order.customerName ?? "Cliente"),
               formatDate(order.createdAt),
               formatMoney(order.totalInCents),
               order.paymentStatus === "approved"
@@ -6966,17 +7620,24 @@ function Payments() {
                   ? "Rejeitado"
                   : "Aguardando confirmacao",
               order.paymentStatus === "pending" ? (
-                <div className="pix-orders__actions" key={order.publicReference}>
+                <div
+                  className="pix-orders__actions"
+                  key={order.publicReference}
+                >
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => setPendingDecision({ order, status: "rejected" })}
+                    onClick={() =>
+                      setPendingDecision({ order, status: "rejected" })
+                    }
                   >
                     Rejeitar
                   </Button>
                   <Button
                     type="button"
-                    onClick={() => setPendingDecision({ order, status: "approved" })}
+                    onClick={() =>
+                      setPendingDecision({ order, status: "approved" })
+                    }
                   >
                     <CheckCircle2 size={16} /> Confirmar
                   </Button>
@@ -7284,7 +7945,9 @@ function Reports() {
         action={
           <div className="page-title__actions">
             <Button
-              loading={overview.isFetching || orders.isFetching || products.isFetching}
+              loading={
+                overview.isFetching || orders.isFetching || products.isFetching
+              }
               type="button"
               variant="secondary"
               onClick={() => {
@@ -7296,7 +7959,10 @@ function Reports() {
               <RefreshCw size={16} />
               Atualizar
             </Button>
-            <Link className="ds-button ds-button--secondary admin-link-button" to="/pedidos">
+            <Link
+              className="ds-button ds-button--secondary admin-link-button"
+              to="/pedidos"
+            >
               <span>
                 <Archive size={16} />
                 Organizar historico
@@ -7315,9 +7981,7 @@ function Reports() {
               disabled={products.isLoading || activeProductItems.length === 0}
               type="button"
               variant="secondary"
-              onClick={() =>
-                exportProductsCsv(activeProductItems, "relatorio")
-              }
+              onClick={() => exportProductsCsv(activeProductItems, "relatorio")}
             >
               <Download size={16} />
               Produtos ativos CSV
@@ -7353,7 +8017,7 @@ function Reports() {
           <Metric
             label="Produtos ativos"
             value={String(overview.data.metrics.activeProducts)}
-              hint={`${overview.data.metrics.activeStockUnits ?? 0} unidades disponíveis`}
+            hint={`${overview.data.metrics.activeStockUnits ?? 0} unidades disponíveis`}
           />
           <Metric
             label="Valor do estoque ativo"
@@ -7514,7 +8178,9 @@ function Metric({
         <span>{label}</span>
         {tone === "warning" ? <Badge tone="warning">Atencao</Badge> : null}
       </div>
-      <strong className={`metric-card__value metric-card__value--${valueDensity}`}>
+      <strong
+        className={`metric-card__value metric-card__value--${valueDensity}`}
+      >
         {value}
       </strong>
       <p>{hint}</p>

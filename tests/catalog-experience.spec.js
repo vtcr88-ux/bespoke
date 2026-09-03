@@ -26,6 +26,7 @@ test.describe("Catalogo configuravel e responsivo", () => {
             catalogTitle: "Escolhas para cada rotina",
             catalogDescription:
               "Compare produtos com calma e refine os resultados conforme sua necessidade.",
+            catalogCardStyle: "ecommerce",
             catalogDensity: viewport.width === 1440 ? "compact" : "comfortable",
           },
         }),
@@ -42,21 +43,28 @@ test.describe("Catalogo configuravel e responsivo", () => {
         page.getByText("Colecao atual", { exact: true }),
       ).toBeVisible();
       await expect(page.locator(".product-card").first()).toBeVisible();
+      await expect(page.locator(".catalog-page")).toHaveAttribute(
+        "data-card-style",
+        "ecommerce",
+      );
       const productImages = page.locator(".product-card__image img");
       await expect(productImages).not.toHaveCount(0);
-      await expect
-        .poll(() =>
-          productImages.evaluateAll((images) =>
-            images.every(
-              (image) => image.complete && image.naturalWidth > 0,
+      for (let index = 0; index < (await productImages.count()); index += 1) {
+        const image = productImages.nth(index);
+        await image.scrollIntoViewIfNeeded();
+        await expect
+          .poll(() =>
+            image.evaluate(
+              (element) => element.complete && element.naturalWidth > 0,
             ),
-          ),
-        )
-        .toBe(true);
+          )
+          .toBe(true);
+      }
       expect(
         await productImages.evaluateAll((images) =>
           images.every(
-            (image) => new URL(image.currentSrc).origin === window.location.origin,
+            (image) =>
+              new URL(image.currentSrc).origin === window.location.origin,
           ),
         ),
       ).toBe(true);

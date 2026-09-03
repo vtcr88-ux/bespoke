@@ -3,7 +3,13 @@ import tseslint from "typescript-eslint";
 
 export default [
   {
-    ignores: ["dist/**", "node_modules/**", "coverage/**", ".vite/**"]
+    ignores: [
+      "**/dist/**",
+      "**/dist-demo/**",
+      "**/node_modules/**",
+      "**/coverage/**",
+      "**/.vite/**"
+    ]
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

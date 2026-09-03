@@ -1,11 +1,12 @@
 import type { CSSProperties, ReactNode, SyntheticEvent } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Link,
   NavLink,
   Route,
   Routes,
   useLocation,
+  useNavigationType,
   useNavigate,
   useParams,
   useSearchParams,
@@ -103,6 +104,8 @@ import { formatMoney } from "../lib/format";
 import { useStorefrontPreviewMedia } from "../lib/storefront-preview-media";
 import { useCartStore } from "../stores/cart";
 import {
+  CategoryNavigationSection,
+  CommerceExperience,
   EditorialNavigation,
   EditorialStatement,
   FeaturedCollectionHeading,
@@ -150,7 +153,13 @@ const textStyleCssNames = {
   navigation: "navigation",
   featuredEyebrow: "featured-eyebrow",
   featuredTitle: "featured-title",
+  categoryEyebrow: "category-eyebrow",
+  categoryTitle: "category-title",
+  categoryBody: "category-body",
   productCardTitle: "product-card-title",
+  commerceEyebrow: "commerce-eyebrow",
+  commerceTitle: "commerce-title",
+  commerceBody: "commerce-body",
   reviewsEyebrow: "reviews-eyebrow",
   reviewsTitle: "reviews-title",
   reviewsBody: "reviews-body",
@@ -526,7 +535,12 @@ function BrandMark({
       }
     }
     return () => observer.disconnect();
-  }, [canInspectPixels, previewMedia.error, previewMedia.loading, resolvedLogoUrl]);
+  }, [
+    canInspectPixels,
+    previewMedia.error,
+    previewMedia.loading,
+    resolvedLogoUrl,
+  ]);
 
   if (!logoUrl) return null;
 
@@ -671,6 +685,23 @@ function useMediaQuery(query: string) {
   }, [query]);
 
   return matches;
+}
+
+function RouteScrollManager() {
+  const location = useLocation();
+  const navigationType = useNavigationType();
+
+  useLayoutEffect(() => {
+    if (navigationType === "POP") return;
+
+    const root = document.documentElement;
+    const previousScrollBehavior = root.style.scrollBehavior;
+    root.style.scrollBehavior = "auto";
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    root.style.scrollBehavior = previousScrollBehavior;
+  }, [location.pathname, navigationType]);
+
+  return null;
 }
 
 function Layout() {
@@ -856,6 +887,7 @@ function Layout() {
       data-storefront-font={storefront?.storefrontFont ?? "signature"}
       style={shellStyle}
     >
+      <RouteScrollManager />
       <a className="skip-link" href="#main">
         Ir para o conteudo
       </a>
@@ -1092,6 +1124,11 @@ function Layout() {
 
 function HomePage() {
   const storefrontQuery = useStorefrontSettingsQuery();
+  const categoriesQuery = useQuery({
+    queryKey: ["home-categories"],
+    queryFn: listCategories,
+    staleTime: 30_000,
+  });
 
   if (storefrontQuery.isLoading) {
     return (
@@ -1196,6 +1233,42 @@ function HomePage() {
         />
       );
     }
+    if (section.id === "categories") {
+      return (
+        <CategoryNavigationSection
+          actionLabel={storefront.categoryLinkLabel}
+          description={storefront.categoryDescription}
+          eyebrow={storefront.categoryEyebrow}
+          items={(categoriesQuery.data?.items ?? []).slice(
+            0,
+            storefront.categoryLimit,
+          )}
+          layout={storefront.categoryLayout}
+          loading={categoriesQuery.isLoading}
+          motionEnabled={motionEnabled}
+          motionIntensity={motionIntensity}
+          motionPreset={motionByBlock?.categories ?? legacyMotionPreset}
+          title={storefront.categoryTitle}
+        />
+      );
+    }
+    if (section.id === "commerce") {
+      return (
+        <CommerceExperience
+          actionLabel={storefront.commerceCtaLabel}
+          description={storefront.commerceDescription}
+          eyebrow={storefront.commerceEyebrow}
+          motionEnabled={motionEnabled}
+          motionIntensity={motionIntensity}
+          motionPreset={motionByBlock?.commerce ?? legacyMotionPreset}
+          onlineDescription={storefront.commerceOnlineDescription}
+          onlineTitle={storefront.commerceOnlineTitle}
+          title={storefront.commerceTitle}
+          whatsappDescription={storefront.commerceWhatsappDescription}
+          whatsappTitle={storefront.commerceWhatsappTitle}
+        />
+      );
+    }
     return <CatalogPreview storefront={storefront} />;
   }
 
@@ -1205,6 +1278,8 @@ function HomePage() {
       data-home-layout={storefront.homeLayout}
       data-card-style={storefront.productCardStyle}
       data-image-fit={storefront.imageFit}
+      data-product-description={storefront.homeProductDescriptionMode}
+      data-product-image-ratio={storefront.homeProductImageRatio}
       data-home-spacing={storefront.homeSectionSpacing ?? "balanced"}
       data-home-transition={transitionPreset}
       data-home-depth={storefront.homeDepthIntensity ?? "balanced"}
@@ -1222,6 +1297,10 @@ function HomePage() {
             storefront.homeTransitionEndColor ?? "#faf8f4",
           "--reviews-background": storefront.reviewsBackgroundColor,
           "--reviews-card-background": storefront.reviewsCardColor,
+          "--home-product-columns-desktop":
+            storefront.homeProductColumnsDesktop,
+          "--home-product-columns-tablet": storefront.homeProductColumnsTablet,
+          "--home-product-columns-mobile": storefront.homeProductColumnsMobile,
           "--home-transition-overlap": `${
             transitionPreset === "none"
               ? 0
@@ -1297,6 +1376,7 @@ function CatalogPreview({ storefront }: { storefront: StorefrontSettings }) {
       <FeaturedCollectionHeading
         actionLabel={storefront.featuredLinkLabel}
         actionTo="/catalogo"
+        description={storefront.featuredDescription}
         eyebrow={storefront.featuredEyebrow}
         title={storefront.featuredTitle}
         motionEnabled={storefront.homeMotionEnabled ?? true}
@@ -2210,7 +2290,9 @@ function CheckoutPage() {
       }),
     onSuccess(data) {
       rememberCheckoutAccess(data.orderReference, data.checkoutAccessToken);
-      navigate(`/checkout/pix?order=${encodeURIComponent(data.orderReference)}`);
+      navigate(
+        `/checkout/pix?order=${encodeURIComponent(data.orderReference)}`,
+      );
     },
   });
 
@@ -2480,7 +2562,9 @@ function CheckoutPage() {
           </div>
         </dl>
         <ul className="checkout-reassurance" aria-label="Garantias do checkout">
-          <li>O valor e conferido novamente pela loja antes de gerar o pagamento.</li>
+          <li>
+            O valor e conferido novamente pela loja antes de gerar o pagamento.
+          </li>
           <li>O pagamento inclui somente produtos e descontos aplicaveis.</li>
           <li>O frete ou a retirada sera combinado depois pelo WhatsApp.</li>
         </ul>
@@ -2557,7 +2641,9 @@ function PixPaymentPage() {
         icon={<QrCode />}
         title="Nao foi possivel carregar o Pix"
         body="O pedido continua protegido. Tente consultar os dados novamente."
-        action={<Button onClick={() => payment.refetch()}>Tentar novamente</Button>}
+        action={
+          <Button onClick={() => payment.refetch()}>Tentar novamente</Button>
+        }
       />
     );
   }
@@ -2643,7 +2729,9 @@ function PixPaymentPage() {
             <MessageCircle size={18} /> Enviar comprovante pelo WhatsApp
           </Button>
           {whatsappOpen.isError ? (
-            <p className="error-text">Nao foi possivel registrar o acesso ao WhatsApp.</p>
+            <p className="error-text">
+              Nao foi possivel registrar o acesso ao WhatsApp.
+            </p>
           ) : null}
           <p className="shipping-note">
             Frete ou retirada continuam a combinar diretamente com a loja.

@@ -1,0 +1,21 @@
+[Unit]
+Description=Bespoke Control API
+After=network.target mysql.service
+
+[Service]
+Type=simple
+User=catalog
+Group=catalog
+WorkingDirectory=__APP_ROOT__
+EnvironmentFile=__ENV_FILE__
+ExecStart=/usr/bin/npm --workspace @bespoke/control-api run start
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=__INSTANCES_ROOT__
+
+[Install]
+WantedBy=multi-user.target

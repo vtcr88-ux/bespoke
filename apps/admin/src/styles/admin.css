@@ -2399,7 +2399,8 @@ tbody tr:hover {
 }
 
 .pix-settings__toggle:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--color-brand-accent) 34%, transparent);
+  outline: 3px solid
+    color-mix(in srgb, var(--color-brand-accent) 34%, transparent);
   outline-offset: 2px;
 }
 
@@ -2685,6 +2686,8 @@ tbody tr:hover {
 .appearance-preview__brand-strip,
 .appearance-preview__manifesto,
 .appearance-preview__navigation,
+.appearance-preview__categories,
+.appearance-preview__commerce,
 .appearance-preview__section,
 .appearance-preview__reviews,
 .appearance-preview__footer {
@@ -3237,6 +3240,109 @@ tbody tr:hover {
   font-weight: 900;
 }
 
+.appearance-preview__categories,
+.appearance-preview__commerce {
+  display: grid;
+  gap: var(--space-2);
+  border-top: 1px solid var(--preview-border);
+  background: var(--preview-home-surface);
+}
+
+.appearance-preview__categories > p,
+.appearance-preview__commerce p {
+  margin: 0;
+  color: var(--preview-category-eyebrow-color, var(--preview-accent));
+  font-family: var(--font-interface);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.appearance-preview__categories > h3,
+.appearance-preview__commerce h3 {
+  margin: 0;
+  color: var(--preview-category-title-color, var(--preview-primary));
+  font-family: var(--preview-category-title-font, var(--font-display));
+  font-size: 1.2rem;
+  line-height: 1.08;
+}
+
+.appearance-preview__categories > span,
+.appearance-preview__commerce span,
+.appearance-preview__commerce small {
+  color: var(--preview-category-body-color, var(--preview-secondary));
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.appearance-preview__categories > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-block: 1px solid var(--preview-border);
+}
+
+.appearance-preview__categories small {
+  min-width: 0;
+  min-height: 56px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 8px;
+  border-left: 1px solid var(--preview-border);
+  color: var(--preview-primary);
+  font-size: 0.64rem;
+  overflow-wrap: anywhere;
+}
+
+.appearance-preview__categories small:first-child {
+  border-left: 0;
+}
+
+.appearance-preview__categories small b {
+  color: var(--preview-accent);
+  font-size: 0.58rem;
+}
+
+.appearance-preview__commerce {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  background: var(--preview-home-alt);
+}
+
+.appearance-preview__commerce > div {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.appearance-preview__commerce h3 {
+  color: var(--preview-commerce-title-color, var(--preview-primary));
+  font-family: var(--preview-commerce-title-font, var(--font-display));
+}
+
+.appearance-preview__commerce strong {
+  padding-top: 6px;
+  border-top: 1px solid var(--preview-border);
+  color: var(--preview-primary);
+  font-size: 0.68rem;
+}
+
+.appearance-preview__commerce small,
+.appearance-preview__commerce span {
+  color: var(--preview-commerce-body-color, var(--preview-secondary));
+}
+
+.appearance-preview--mobile .appearance-preview__commerce {
+  grid-template-columns: 1fr;
+}
+
+.appearance-preview--mobile .appearance-preview__categories > div {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.appearance-preview--mobile .appearance-preview__categories small:nth-child(3) {
+  display: none;
+}
+
 .appearance-preview__brand-strip {
   justify-content: space-between;
   border-bottom: 1px solid var(--color-border);
@@ -3355,6 +3461,38 @@ tbody tr:hover {
   font-family: var(--font-display);
   font-size: 1.5rem;
   line-height: 1;
+}
+
+.appearance-preview__card--ecommerce {
+  border-color: color-mix(in srgb, var(--preview-border) 72%, transparent);
+  border-radius: min(var(--radius-md), 8px);
+  box-shadow: none;
+}
+
+.appearance-preview__card--ecommerce h4 {
+  font-family: var(--font-interface);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.appearance-preview__card--ecommerce .appearance-preview__card-media {
+  background: color-mix(
+    in srgb,
+    var(--preview-surface-alt, var(--color-surface-elevated)) 64%,
+    #ffffff
+  );
+}
+
+.appearance-preview__card--ecommerce .ds-badge {
+  color: var(--preview-accent);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.appearance-preview__card--ecommerce > div:last-child > strong {
+  color: var(--preview-accent);
+  font-size: 1.08rem;
+  font-weight: 800;
 }
 
 .appearance-preview__card-media {

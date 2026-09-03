@@ -15,7 +15,7 @@ export class AdminService {
   constructor(private readonly store: CommerceStoreAdapter) {}
 
   async overview() {
-    const products = await this.store.products({ includeInactive: true });
+    const products = await this.store.adminProducts();
     const orders = await this.store.orders();
     const confirmedOrders = orders.filter(
       (order) => order.revenueConfirmedAt !== null,
@@ -27,7 +27,9 @@ export class AdminService {
         order.status === "pending_payment" ||
         order.status === "contact_requested",
     ).length;
-    const activeProducts = products.filter((product) => product.isActive);
+    const activeProducts = products.filter(
+      (product) => product.status === "active",
+    );
     const inventoryValueInCents = activeProducts.reduce(
       (total, product) => total + product.priceInCents * product.stock,
       0,

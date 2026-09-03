@@ -99,9 +99,104 @@ test("menu da Vitrine acompanha a rolagem em todas as telas", async ({
     });
 
     await expect
-      .poll(() => tabs.evaluate((element) => element.getBoundingClientRect().bottom))
+      .poll(() =>
+        tabs.evaluate((element) => element.getBoundingClientRect().bottom),
+      )
       .toBeLessThan(0);
   }
+});
+
+test("Vendas organiza e salva a experiencia comercial da Home", async ({
+  page,
+}) => {
+  await prepareAdmin(page);
+  let savedSettings = null;
+  page.on("request", (request) => {
+    if (
+      request.method() === "PATCH" &&
+      new URL(request.url()).pathname === "/admin/storefront"
+    ) {
+      savedSettings = request.postDataJSON();
+    }
+  });
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(`${adminOrigin}/aparencia?tab=sales`, {
+    waitUntil: "domcontentloaded",
+  });
+
+  await expect(page.getByRole("tab", { name: "Vendas" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await page
+    .locator("#appearance-panel-sales")
+    .getByLabel("Titulo da secao")
+    .fill("Escolha por categoria");
+  await page
+    .getByLabel("Descricao dos produtos em destaque")
+    .fill("Produtos selecionados para uma compra simples e segura.");
+  const productShowcaseSection = page.locator("section.editor-section").filter({
+    has: page.getByRole("heading", { name: "Vitrine de produtos" }),
+  });
+  await productShowcaseSection
+    .getByLabel("Colunas no celular")
+    .selectOption("2");
+  await productShowcaseSection
+    .getByLabel("Descricao nos cards")
+    .selectOption("compact");
+  await productShowcaseSection
+    .getByLabel("Estilo visual dos cards")
+    .selectOption("ecommerce");
+  await expect(
+    page.locator(".appearance-preview__card--ecommerce"),
+  ).toBeAttached();
+  await page
+    .getByLabel("Titulo da compra pelo WhatsApp")
+    .fill("Atendimento pelo WhatsApp");
+  await page.screenshot({
+    fullPage: true,
+    path: "test-results/admin-sales-desktop.png",
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page
+    .getByRole("heading", { name: "Navegacao por categorias" })
+    .scrollIntoViewIfNeeded();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+      ),
+    )
+    .toBeLessThanOrEqual(1);
+  await page.screenshot({
+    fullPage: true,
+    path: "test-results/admin-sales-mobile.png",
+  });
+  await page.getByRole("button", { name: "Salvar vitrine" }).click();
+
+  await expect.poll(() => savedSettings).not.toBeNull();
+  expect(savedSettings).toMatchObject({
+    categoryTitle: "Escolha por categoria",
+    featuredDescription:
+      "Produtos selecionados para uma compra simples e segura.",
+    homeProductColumnsMobile: 2,
+    homeProductDescriptionMode: "compact",
+    productCardStyle: "ecommerce",
+    commerceWhatsappTitle: "Atendimento pelo WhatsApp",
+  });
+  expect(savedSettings.homeSections).toHaveLength(5);
+  expect(savedSettings.homeSections.map((section) => section.id)).toEqual(
+    expect.arrayContaining([
+      "manifesto",
+      "navigation",
+      "featured",
+      "categories",
+      "commerce",
+    ]),
+  );
 });
 
 test("Composicao mostra a Home real em desktop, tablet e celular", async ({
@@ -170,12 +265,16 @@ test("Composicao mostra a Home real em desktop, tablet e celular", async ({
     ),
   ).toBe(footerBefore);
 
-  const previewCard = previewFrame.locator(".product-card--home-preview").first();
+  const previewCard = previewFrame
+    .locator(".product-card--home-preview")
+    .first();
   await expect(previewCard).toBeVisible({ timeout: 20_000 });
   const shadowBefore = await previewCard.evaluate(
     (element) => getComputedStyle(element).boxShadow,
   );
-  await page.getByRole("textbox", { name: "Sombras", exact: true }).fill("#58243a");
+  await page
+    .getByRole("textbox", { name: "Sombras", exact: true })
+    .fill("#58243a");
   await expect
     .poll(() =>
       previewFrame
@@ -767,7 +866,9 @@ test("Fontes e cores de Home, manifesto e Catalogo persistem sem aliases duplica
   await publicPage.goto("http://localhost:5173", {
     waitUntil: "domcontentloaded",
   });
-  await expect(publicPage.locator(".editorial-statement__line").first()).toBeVisible({
+  await expect(
+    publicPage.locator(".editorial-statement__line").first(),
+  ).toBeVisible({
     timeout: 20_000,
   });
   await expect(publicPage.locator(".featured-collection")).toBeVisible({
@@ -794,7 +895,9 @@ test("Fontes e cores de Home, manifesto e Catalogo persistem sem aliases duplica
   const catalogTitle = publicPage.locator(".catalog-intro h1");
   await expect(catalogTitle).toHaveCSS("color", "rgb(23, 60, 49)");
   expect(
-    await catalogTitle.evaluate((element) => getComputedStyle(element).fontFamily),
+    await catalogTitle.evaluate(
+      (element) => getComputedStyle(element).fontFamily,
+    ),
   ).toContain("Georgia");
   await publicPage.close();
 });
